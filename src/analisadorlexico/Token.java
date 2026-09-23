@@ -1,3 +1,5 @@
+package analisadorlexico;
+
 import java.util.Objects;
 
 public class Token {
@@ -47,7 +49,7 @@ public class Token {
 
     @Override
     public String toString() {
-        return String.format("%-15s %s", lexema, tipo);
+        return String.format("<%s, %s>", lexema, tipo);
     }
 
     @Override

@@ -1,3 +1,5 @@
+package analisadorlexico;
+
 public enum Tokens {
     PALAVRA_RESERVADA,
     IDENTIFICADOR,
@@ -9,5 +11,7 @@ public enum Tokens {
     SIMBOLO_ESPECIAL,
     ATRIBUICAO,
     FIM,
+    CONSTANTE_STRING,
+    CONSTANTE_CHAR,
     DESCONHECIDO
 }

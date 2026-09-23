@@ -1,33 +1,28 @@
+package analisadorlexico;
+
+import tabelasimbolos.TabelaSimbolos;
+
 import java.util.*;
 
 public class AnalisadorLexico {
-    private String codigoFonte;
+    private final String codigoFonte;
     private int posicao;
     private int linha;
     private int coluna;
-
-    private static final Set<String> PALAVRAS_RESERVADAS = new HashSet<>(Arrays.asList(
-            "ABSOLUTE", "ARRAY", "BEGIN", "CASE", "CHAR", "CONST", "DIV", "DO", "DOWNTO", "ELSE", "END", "EXTERNAL",
-            "FILE", "FOR", "FORWARD", "FUNC", "FUNCTION", "GOTO", "IF", "IMPLEMENTATION", "INTEGER",
-            "INTERFACE", "INTERRUPT", "LABEL", "MAIN", "NIL", "NIT", "OF", "PACKED", "PROC", "PROGRAM", "REAL",
-            "RECORD", "REPEAT", "SET", "SHL", "SHR", "STRING", "THEN", "TO", "TYPE", "UNIT", "UNTIL", "USES", "VAR", "WHILE",
-            "WITH", "XOR"
-    ));
+    private final TabelaSimbolos tabela;
 
     private static final Set<String> OPERADORES_LOGICOS = new HashSet<>(Arrays.asList("AND", "OR", "NOT"));
 
-    public AnalisadorLexico(String codigoFonte) {
+    public AnalisadorLexico(String codigoFonte, TabelaSimbolos tabelaSimbolos) {
         this.codigoFonte = codigoFonte;
+        this.tabela = tabelaSimbolos;
         this.posicao = 0;
         this.linha = 1;
         this.coluna = 1;
     }
 
     private char lerCaractere() {
-        if (posicao >= codigoFonte.length()) {
-            return '\0';
-        }
-
+        if (posicao >= codigoFonte.length()) return '\0';
         char c = codigoFonte.charAt(posicao++);
         if (c == '\n') {
             linha++;
@@ -50,7 +45,6 @@ public class AnalisadorLexico {
 
         while (posicao < codigoFonte.length()) {
             char c = lerCaractere();
-
             if (Character.isWhitespace(c)) continue;
 
             if (c == '/' && posicao < codigoFonte.length() && codigoFonte.charAt(posicao) == '*') {
@@ -64,16 +58,22 @@ public class AnalisadorLexico {
                 extrairIdentificador(c, tokens, colInicial);
                 continue;
             }
-
             if (Character.isDigit(c)) {
                 extrairNumeros(c, tokens, colInicial);
                 continue;
             }
-
+            if (c == '"') {
+                extrairString(tokens, colInicial);
+                continue;
+            }
+            if (c == '\'') {
+                extrairChar(tokens, colInicial);
+                continue;
+            }
             if (c == '.') {
                 tokens.add(new Token(".", Tokens.FIM, linha, colInicial));
+                continue;
             }
-
             if (c == ':') {
                 if (posicao < codigoFonte.length() && codigoFonte.charAt(posicao) == '=') {
                     lerCaractere();
@@ -83,31 +83,25 @@ public class AnalisadorLexico {
                 }
                 continue;
             }
-
             if (c == '<' || c == '>' || c == '=') {
                 extrairOperadorRelacional(c, tokens, colInicial);
                 continue;
             }
-
             if (c == '+' || c == '-' || c == '*' || c == '/') {
                 tokens.add(new Token(String.valueOf(c), Tokens.OPERADOR_ARITMETICO, linha, colInicial));
                 continue;
             }
-
             if (c == '(' || c == ')' || c == ',' || c == ';') {
                 tokens.add(new Token(String.valueOf(c), Tokens.SIMBOLO_ESPECIAL, linha, colInicial));
                 continue;
             }
-
             tokens.add(new Token(String.valueOf(c), Tokens.DESCONHECIDO, linha, colInicial));
         }
-
         return tokens;
     }
 
     private void extrairIdentificador(char c, List<Token> tokens, int colInicial) {
         StringBuilder stringBuilder = getStringBuilder(c);
-
         while(posicao < codigoFonte.length()) {
             char prox = lerCaractere();
             if (Character.isLetterOrDigit(prox) || prox == '_') {
@@ -117,18 +111,62 @@ public class AnalisadorLexico {
                 break;
             }
         }
-
         String lexema = stringBuilder.toString();
         String lexemaUpper = lexema.toUpperCase();
 
-        if (PALAVRAS_RESERVADAS.contains(lexemaUpper)) {
-            tokens.add(new Token(lexema, Tokens.PALAVRA_RESERVADA, linha, colInicial));
-        } else if (OPERADORES_LOGICOS.contains(lexemaUpper)) {
+        if (OPERADORES_LOGICOS.contains(lexemaUpper)) {
             tokens.add(new Token(lexema, Tokens.OPERADOR_LOGICO, linha, colInicial));
         } else if (lexemaUpper.equals("MOD")) {
             tokens.add(new Token(lexema, Tokens.OPERADOR_ARITMETICO, linha, colInicial));
         } else {
-            tokens.add(new Token(lexema, Tokens.IDENTIFICADOR, linha, colInicial));
+            Token tokenNaTabela = tabela.buscar(lexemaUpper);
+            if (tokenNaTabela != null && tokenNaTabela.getTipo() == Tokens.PALAVRA_RESERVADA) {
+                tokens.add(new Token(lexema, Tokens.PALAVRA_RESERVADA, linha, colInicial));
+            } else {
+                Token novoToken = new Token(lexema, Tokens.IDENTIFICADOR, linha, colInicial);
+                tabela.inserir(lexemaUpper, novoToken);
+                tokens.add(novoToken);
+            }
+        }
+    }
+
+    private void extrairString(List<Token> tokens, int colInicial) {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append('"');
+        boolean fechou = false;
+
+        while (posicao < codigoFonte.length()) {
+            char prox = lerCaractere();
+            stringBuilder.append(prox);
+            if (prox == '"') {
+                fechou = true;
+                break;
+            }
+        }
+        if (fechou) {
+            tokens.add(new Token(stringBuilder.toString(), Tokens.CONSTANTE_STRING, linha, colInicial));
+        } else {
+            tokens.add(new Token(stringBuilder.toString(), Tokens.DESCONHECIDO, linha, colInicial));
+        }
+    }
+
+    private void extrairChar(List<Token> tokens, int colInicial) {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append('\'');
+        boolean fechou = false;
+
+        while (posicao < codigoFonte.length()) {
+            char prox = lerCaractere();
+            stringBuilder.append(prox);
+            if (prox == '\'') {
+                fechou = true;
+                break;
+            }
+        }
+        if (fechou) {
+            tokens.add(new Token(stringBuilder.toString(), Tokens.CONSTANTE_CHAR, linha, colInicial));
+        } else {
+            tokens.add(new Token(stringBuilder.toString(), Tokens.DESCONHECIDO, linha, colInicial));
         }
     }
 
@@ -144,11 +182,7 @@ public class AnalisadorLexico {
         }
 
         String lexema = stringBuilder.toString();
-        if (lexema.equals("=")) {
-            tokens.add(new Token(lexema, Tokens.OPERADOR_RELACIONAL, linha, colInicial));
-        } else {
-            tokens.add(new Token(lexema, Tokens.OPERADOR_RELACIONAL, linha, colInicial));
-        }
+        tokens.add(new Token(lexema, Tokens.OPERADOR_RELACIONAL, linha, colInicial));
     }
 
     private void extrairNumeros(char c, List<Token> tokens, int colInicial) {
