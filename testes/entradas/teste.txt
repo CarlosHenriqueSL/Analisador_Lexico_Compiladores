@@ -8,7 +8,8 @@ begin
   if (x > y) then
     y := x ;
   else
-    y := -x;
+    y := -x + x;
   writeln(x);
   write(y);
-end.
+  10e
+end.10e

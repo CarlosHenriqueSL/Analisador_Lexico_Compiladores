@@ -1,8 +1,7 @@
 package analisadorlexico;
 
-import tabelasimbolos.TabelaSimbolos;
-
 import java.util.*;
+import tabelasimbolos.TabelaSimbolos;
 
 public class AnalisadorLexico {
     private final String codigoFonte;
@@ -10,6 +9,12 @@ public class AnalisadorLexico {
     private int linha;
     private int coluna;
     private final TabelaSimbolos tabela;
+
+    // [CORREÇÃO 2] Guardam o estado (linha/coluna) imediatamente ANTES da
+    // última chamada a lerCaractere(). São usados por retroceder() para
+    // desfazer corretamente a leitura de uma quebra de linha ('\n').
+    private int linhaAnterior;
+    private int colunaAnterior;
 
     private static final Set<String> OPERADORES_LOGICOS = new HashSet<>(Arrays.asList("AND", "OR", "NOT"));
 
@@ -19,10 +24,14 @@ public class AnalisadorLexico {
         this.posicao = 0;
         this.linha = 1;
         this.coluna = 1;
+        this.linhaAnterior = 1;
+        this.colunaAnterior = 1;
     }
 
     private char lerCaractere() {
         if (posicao >= codigoFonte.length()) return '\0';
+        linhaAnterior = linha;
+        colunaAnterior = coluna;
         char c = codigoFonte.charAt(posicao++);
         if (c == '\n') {
             linha++;
@@ -33,10 +42,19 @@ public class AnalisadorLexico {
         return c;
     }
 
+    // [CORREÇÃO 2] Antes, retroceder() apenas decrementava "coluna", nunca
+    // desfazia o incremento de "linha" feito por lerCaractere() ao consumir um
+    // '\n'. Isso fazia com que a mesma quebra de linha fosse contada duas
+    // vezes sempre que um token terminava logo antes dela (ex.: identificador
+    // seguido de fim de linha), corrompendo o número de linha de todos os
+    // tokens seguintes. Agora restauramos o estado exato salvo em
+    // lerCaractere(), o que também corrige o caso especial de retroceder()
+    // ser chamado logo após uma leitura em fim de arquivo (ver Correção 1).
     private void retroceder() {
         if (posicao > 0) {
             posicao--;
-            coluna--;
+            linha = linhaAnterior;
+            coluna = colunaAnterior;
         }
     }
 
@@ -48,7 +66,12 @@ public class AnalisadorLexico {
             if (Character.isWhitespace(c)) continue;
 
             if (c == '/' && posicao < codigoFonte.length() && codigoFonte.charAt(posicao) == '*') {
-                extrairComentarios(tokens);
+                // [CORREÇÃO 4] Guarda a posição de ABERTURA do comentário
+                // (linha/coluna do '/') para reportar corretamente o erro
+                // caso ele nunca seja fechado.
+                int linhaInicial = linha;
+                int colInicialComentario = coluna - 1;
+                extrairComentarios(tokens, linhaInicial, colInicialComentario);
                 continue;
             }
 
@@ -63,15 +86,24 @@ public class AnalisadorLexico {
                 continue;
             }
             if (c == '"') {
-                extrairString(tokens, colInicial);
+                // [CORREÇÃO 4] Passa a linha inicial explicitamente.
+                extrairString(tokens, linha, colInicial);
                 continue;
             }
             if (c == '\'') {
-                extrairChar(tokens, colInicial);
+                extrairChar(tokens, linha, colInicial);
                 continue;
             }
             if (c == '.') {
-                tokens.add(new Token(".", Tokens.FIM, linha, colInicial));
+                // [CORREÇÃO 3] Reconhece o operador de intervalo ".." (usado em
+                // declarações como ARRAY[1..10]) antes de tratar um único
+                // ponto como fim de programa.
+                if (posicao < codigoFonte.length() && codigoFonte.charAt(posicao) == '.') {
+                    lerCaractere();
+                    tokens.add(new Token("..", Tokens.SIMBOLO_ESPECIAL, linha, colInicial));
+                } else {
+                    tokens.add(new Token(".", Tokens.FIM, linha, colInicial));
+                }
                 continue;
             }
             if (c == ':') {
@@ -122,6 +154,12 @@ public class AnalisadorLexico {
             Token tokenNaTabela = tabela.buscar(lexemaUpper);
             if (tokenNaTabela != null && tokenNaTabela.getTipo() == Tokens.PALAVRA_RESERVADA) {
                 tokens.add(new Token(lexema, Tokens.PALAVRA_RESERVADA, linha, colInicial));
+            } else if (tokenNaTabela != null) {
+                // [CORREÇÃO 6] O identificador já existe na tabela: apenas
+                // emitimos o token da ocorrência atual, sem sobrescrever a
+                // entrada existente (evita perder o registro original a cada
+                // nova ocorrência do mesmo identificador).
+                tokens.add(new Token(lexema, Tokens.IDENTIFICADOR, linha, colInicial));
             } else {
                 Token novoToken = new Token(lexema, Tokens.IDENTIFICADOR, linha, colInicial);
                 tabela.inserir(lexemaUpper, novoToken);
@@ -130,7 +168,7 @@ public class AnalisadorLexico {
         }
     }
 
-    private void extrairString(List<Token> tokens, int colInicial) {
+    private void extrairString(List<Token> tokens, int linhaInicial, int colInicial) {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append('"');
         boolean fechou = false;
@@ -138,19 +176,29 @@ public class AnalisadorLexico {
         while (posicao < codigoFonte.length()) {
             char prox = lerCaractere();
             stringBuilder.append(prox);
+            // [CORREÇÃO 5] Suporte a caractere de escape: um '\' consome o
+            // próximo caractere sem interpretá-lo como fechamento da string
+            // (ex.: "a\"b" não fecha prematuramente no \").
+            if (prox == '\\' && posicao < codigoFonte.length()) {
+                stringBuilder.append(lerCaractere());
+                continue;
+            }
             if (prox == '"') {
                 fechou = true;
                 break;
             }
         }
         if (fechou) {
-            tokens.add(new Token(stringBuilder.toString(), Tokens.CONSTANTE_STRING, linha, colInicial));
+            // [CORREÇÃO 4] Usa a linha em que a string COMEÇOU, não a linha
+            // atual (que pode já ter avançado se a string for malformada e
+            // atravessar múltiplas linhas).
+            tokens.add(new Token(stringBuilder.toString(), Tokens.CONSTANTE_STRING, linhaInicial, colInicial));
         } else {
-            tokens.add(new Token(stringBuilder.toString(), Tokens.DESCONHECIDO, linha, colInicial));
+            tokens.add(new Token(stringBuilder.toString(), Tokens.DESCONHECIDO, linhaInicial, colInicial));
         }
     }
 
-    private void extrairChar(List<Token> tokens, int colInicial) {
+    private void extrairChar(List<Token> tokens, int linhaInicial, int colInicial) {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append('\'');
         boolean fechou = false;
@@ -158,15 +206,19 @@ public class AnalisadorLexico {
         while (posicao < codigoFonte.length()) {
             char prox = lerCaractere();
             stringBuilder.append(prox);
+            if (prox == '\\' && posicao < codigoFonte.length()) {
+                stringBuilder.append(lerCaractere());
+                continue;
+            }
             if (prox == '\'') {
                 fechou = true;
                 break;
             }
         }
         if (fechou) {
-            tokens.add(new Token(stringBuilder.toString(), Tokens.CONSTANTE_CHAR, linha, colInicial));
+            tokens.add(new Token(stringBuilder.toString(), Tokens.CONSTANTE_CHAR, linhaInicial, colInicial));
         } else {
-            tokens.add(new Token(stringBuilder.toString(), Tokens.DESCONHECIDO, linha, colInicial));
+            tokens.add(new Token(stringBuilder.toString(), Tokens.DESCONHECIDO, linhaInicial, colInicial));
         }
     }
 
@@ -194,17 +246,32 @@ public class AnalisadorLexico {
             if (Character.isDigit(prox)) {
                 stringBuilder.append(prox);
             } else if (prox == '.' && !isReal) {
+                // [CORREÇÃO 3] Se o ponto for seguido de OUTRO ponto, não é
+                // parte de um número real: é o operador de intervalo "..".
+                // Nesse caso devolvemos o ponto e encerramos o número aqui.
+                if (posicao < codigoFonte.length() && codigoFonte.charAt(posicao) == '.') {
+                    retroceder();
+                    break;
+                }
                 isReal = true;
                 stringBuilder.append(prox);
             } else if ((prox == 'e' || prox == 'E') && !isReal) {
                 isReal = true;
                 stringBuilder.append(prox);
-                char nextOpcional = lerCaractere();
-
-                if (nextOpcional == '+' || nextOpcional == '-') {
-                    stringBuilder.append(nextOpcional);
-                } else {
-                    retroceder();
+                // [CORREÇÃO 1] Só tenta ler o caractere opcional de sinal do
+                // expoente (+/-) se ainda houver caracteres no arquivo. Antes,
+                // se o 'e'/'E' fosse o último caractere do código-fonte,
+                // lerCaractere() retornava '\0' SEM avançar "posicao", e o
+                // retroceder() seguinte decrementava "posicao" mesmo assim —
+                // fazendo o laço reler o mesmo 'e' para sempre (loop infinito
+                // / travamento do programa).
+                if (posicao < codigoFonte.length()) {
+                    char nextOpcional = lerCaractere();
+                    if (nextOpcional == '+' || nextOpcional == '-') {
+                        stringBuilder.append(nextOpcional);
+                    } else {
+                        retroceder();
+                    }
                 }
             } else {
                 retroceder();
@@ -226,7 +293,7 @@ public class AnalisadorLexico {
         return stringBuilder;
     }
 
-    private void extrairComentarios(List<Token> tokens) {
+    private void extrairComentarios(List<Token> tokens, int linhaInicial, int colInicial) {
         lerCaractere();
         boolean comentarioFechado = false;
 
@@ -240,7 +307,10 @@ public class AnalisadorLexico {
         }
 
         if (!comentarioFechado) {
-            tokens.add(new Token("/*", Tokens.DESCONHECIDO, linha, coluna));
+            // [CORREÇÃO 4] Reporta a posição de ABERTURA do comentário
+            // (antes: reportava linha/coluna do FIM do arquivo, apontando
+            // para o lugar errado ao depurar).
+            tokens.add(new Token("/*", Tokens.DESCONHECIDO, linhaInicial, colInicial));
         }
     }
 }

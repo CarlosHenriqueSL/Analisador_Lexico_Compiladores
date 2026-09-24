@@ -1,9 +1,9 @@
 package util;
 
 import analisadorlexico.Token;
-
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -18,6 +18,13 @@ public class GerenciadorArquivos {
                 .map(Token::toString)
                 .collect(Collectors.toList());
 
-        Files.write(Paths.get(caminhoDestino), linhas);
+        Path destino = Paths.get(caminhoDestino);
+        // [CORREÇÃO 7] Garante que o diretório de saída exista antes de
+        // escrever o arquivo. Antes, se "testes/saidas/" não existisse,
+        // Files.write lançava IOException e o programa falhava.
+        if (destino.getParent() != null) {
+            Files.createDirectories(destino.getParent());
+        }
+        Files.write(destino, linhas);
     }
 }
