@@ -1,0 +1,7 @@
+program operadores;
+var a, b: integer;
+begin
+  a := b + 2 * 3 div 4 mod 2;
+  if a >= b and not (a <> b) then
+    a := a - 1;
+end.

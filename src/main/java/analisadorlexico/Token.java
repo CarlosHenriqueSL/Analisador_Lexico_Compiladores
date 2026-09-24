@@ -49,7 +49,7 @@ public class Token {
 
     @Override
     public String toString() {
-        return String.format("<%s, %s>", lexema, tipo);
+        return String.format("<%s, %s>", lexema, tipo.getDescricao());
     }
 
     @Override
