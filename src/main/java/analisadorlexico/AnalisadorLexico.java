@@ -3,6 +3,11 @@ package analisadorlexico;
 import tabelasimbolos.TabelaSimbolos;
 import java.util.*;
 
+/**
+ * Realiza a análise léxica do código-fonte Mini Pascal.
+ * A classe percorre o texto fonte caractere por caractere, reconhece lexemas
+ * e produz tokens com informações de linha, coluna e categoria.
+ */
 public class AnalisadorLexico {
 
     private final String codigoFonte;
@@ -13,6 +18,12 @@ public class AnalisadorLexico {
 
     private static final Set<String> OPERADORES_LOGICOS = new HashSet<>(Arrays.asList("AND", "OR", "NOT"));
 
+    /**
+     * Cria um analisador léxico para um código-fonte específico.
+     *
+     * @param codigoFonte texto fonte a ser analisado
+     * @param tabelaSimbolos tabela de símbolos utilizada para consultar palavras reservadas e identificadores
+     */
     public AnalisadorLexico(String codigoFonte, TabelaSimbolos tabelaSimbolos) {
         this.codigoFonte = codigoFonte;
         this.tabela = tabelaSimbolos;
@@ -21,6 +32,11 @@ public class AnalisadorLexico {
         this.coluna = 1;
     }
 
+    /**
+     * Lê o próximo caractere do código-fonte e atualiza as posições de linha e coluna.
+     *
+     * @return próximo caractere disponível ou '\0' quando houver fim do texto
+     */
     private char lerCaractere() {
         if (posicao >= codigoFonte.length()) return '\0';
         char c = codigoFonte.charAt(posicao++);
@@ -33,15 +49,20 @@ public class AnalisadorLexico {
         return c;
     }
 
+    /**
+     * Observa o caractere atual sem avançar o cursor de leitura.
+     *
+     * @return caractere atual ou '\0' ao final do arquivo
+     */
     private char olharCaractere() {
         if (posicao >= codigoFonte.length()) return '\0';
         return codigoFonte.charAt(posicao);
     }
 
     /**
-     * Estratégia de correção de erros: "Panic Mode" (Modo Pânico).
-     * Símbolos desconhecidos ou malformados não interrompem o analisador.
-     * Eles são englobados como DESCONHECIDO, retornados e o analisador avança para o próximo caractere.
+     * Produz o próximo token disponível no código-fonte.
+     *
+     * @return objeto Token correspondente ao próximo símbolo reconhecido, ou null ao final do arquivo
      */
     public Token proximoToken() {
         while (posicao < codigoFonte.length()) {
@@ -103,8 +124,9 @@ public class AnalisadorLexico {
     }
 
     /**
-     * Método utilitário para a Etapa 1 (Gerar Arquivo).
-     * Lê todos os tokens sequencialmente chamando o proximoToken().
+     * Analisa o código-fonte inteiro e retorna a lista completa de tokens.
+     *
+     * @return coleção de tokens gerados pela leitura do arquivo
      */
     public List<Token> analisarTudo() {
         List<Token> tokens = new ArrayList<>();
@@ -115,6 +137,14 @@ public class AnalisadorLexico {
         return tokens;
     }
 
+    /**
+     * Reconhece identificadores, palavras reservadas e operadores lógicos.
+     *
+     * @param c primeiro caractere do identificador
+     * @param linhaInicial linha em que o lexema começa
+     * @param colunaInicial coluna em que o lexema começa
+     * @return token correspondente ao identificador ou palavra-chave
+     */
     private Token extrairIdentificador(char c, int linhaInicial, int colunaInicial) {
         StringBuilder stringBuilder = getStringBuilder(c);
         while (Character.isLetterOrDigit(olharCaractere()) || olharCaractere() == '_') {
@@ -140,6 +170,13 @@ public class AnalisadorLexico {
         }
     }
 
+    /**
+     * Extrai uma string delimitada por aspas duplas.
+     *
+     * @param linhaInicial linha em que a string começa
+     * @param colunaInicial coluna em que a string começa
+     * @return token da constante string ou um token desconhecido em caso de erro
+     */
     private Token extrairString(int linhaInicial, int colunaInicial) {
         StringBuilder stringBuilder = new StringBuilder("\"");
         while (posicao < codigoFonte.length()) {
@@ -155,6 +192,13 @@ public class AnalisadorLexico {
         return new Token(stringBuilder.toString(), Tokens.DESCONHECIDO, linhaInicial, colunaInicial);
     }
 
+    /**
+     * Extrai um caractere delimitado por aspas simples.
+     *
+     * @param linhaInicial linha em que o literal começa
+     * @param colunaInicial coluna em que o literal começa
+     * @return token do literal char ou desconhecido em caso de erro
+     */
     private Token extrairChar(int linhaInicial, int colunaInicial) {
         StringBuilder stringBuilder = new StringBuilder("'");
         int quantidadeCaracteres = 0;
@@ -173,6 +217,14 @@ public class AnalisadorLexico {
         return new Token(stringBuilder.toString(), Tokens.DESCONHECIDO, linhaInicial, colunaInicial);
     }
 
+    /**
+     * Reconhece operadores relacionais e comparações compostas, como <=, >= e <>.
+     *
+     * @param c primeiro caractere do operador
+     * @param linhaInicial linha do operador no código-fonte
+     * @param colunaInicial coluna do operador no código-fonte
+     * @return token do operador relacional
+     */
     private Token extrairOperadorRelacional(char c, int linhaInicial, int colunaInicial) {
         StringBuilder stringBuilder = getStringBuilder(c);
         char prox = olharCaractere();
@@ -182,6 +234,14 @@ public class AnalisadorLexico {
         return new Token(stringBuilder.toString(), Tokens.OPERADOR_RELACIONAL, linhaInicial, colunaInicial);
     }
 
+    /**
+     * Extrai valores numéricos inteiros ou reais, incluindo notação científica.
+     *
+     * @param c primeiro dígito do número
+     * @param linhaInicial linha do valor no código-fonte
+     * @param colunaInicial coluna do valor no código-fonte
+     * @return token do número reconhecido, ou token desconhecido se o literal estiver malformado
+     */
     private Token extrairNumeros(char c, int linhaInicial, int colunaInicial) {
         StringBuilder stringBuilder = getStringBuilder(c);
         boolean real = false;
@@ -220,18 +280,36 @@ public class AnalisadorLexico {
         return new Token(stringBuilder.toString(), real ? Tokens.NUMERO_REAL : Tokens.NUMERO_INTEIRO, linhaInicial, colunaInicial);
     }
 
+    /**
+     * Retorna o caractere imediatamente após a posição atual.
+     *
+     * @return próximo caractere ou '\0' se não existir
+     */
     private char caractereSeguinte() {
         int indiceSeguinte = posicao + 1;
         if (indiceSeguinte >= codigoFonte.length()) return '\0';
         return codigoFonte.charAt(indiceSeguinte);
     }
 
+    /**
+     * Cria um construtor de texto a partir do primeiro caractere do lexema.
+     *
+     * @param c primeiro caractere do lexema
+     * @return instância de StringBuilder com o caractere inicial
+     */
     private static StringBuilder getStringBuilder(char c) {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append(c);
         return stringBuilder;
     }
 
+    /**
+     * Ignora comentários em bloco e retorna erro caso o fechamento não exista.
+     *
+     * @param linhaInicial linha em que o comentário inicia
+     * @param colunaInicial coluna em que o comentário inicia
+     * @return null quando o comentário é válido, ou token desconhecido quando há falha de fechamento
+     */
     private Token extrairComentarios(int linhaInicial, int colunaInicial) {
         lerCaractere();
         while (posicao < codigoFonte.length()) {

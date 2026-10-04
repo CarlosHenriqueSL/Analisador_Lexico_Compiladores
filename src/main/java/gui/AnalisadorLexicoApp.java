@@ -31,6 +31,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 
+/**
+ * Interface gráfica principal do projeto.
+ * Permite abrir um arquivo-fonte, realizar a análise léxica e exibir os tokens
+ * em uma tabela organizada com linha, coluna, lexema e classificação.
+ */
 public class AnalisadorLexicoApp extends Application {
 	private final TextArea editor = new TextArea();
 	private final TableView<Token> tabelaTokens = new TableView<>();
@@ -39,6 +44,11 @@ public class AnalisadorLexicoApp extends Application {
 	private final Label statusLabel = new Label("Pronto para analisar");
 	private final Label resumoLabel = new Label("0 tokens");
 
+	/**
+	 * Inicializa a interface gráfica e monta os painéis da aplicação.
+	 *
+	 * @param stage palco principal da janela JavaFX
+	 */
 	@Override
 	public void start(Stage stage) {
 		BorderPane root = new BorderPane();
@@ -59,6 +69,12 @@ public class AnalisadorLexicoApp extends Application {
 		stage.show();
 	}
 
+	/**
+	 * Cria o cabeçalho da tela com os botões de abrir, analisar e exportar.
+	 *
+	 * @param stage palco principal da aplicação
+	 * @return painel do cabeçalho
+	 */
 	private VBox criarCabecalho(Stage stage) {
 		Label titulo = new Label("Analisador Léxico");
 		titulo.getStyleClass().add("app-title");
@@ -87,12 +103,22 @@ public class AnalisadorLexicoApp extends Application {
 		return cabecalho;
 	}
 
+	/**
+	 * Cria a marca visual do projeto exibida no cabeçalho.
+	 *
+	 * @return rótulo da marca "LX"
+	 */
 	private Label criarMarca() {
 		Label marca = new Label("LX");
 		marca.getStyleClass().add("brand-mark");
 		return marca;
 	}
 
+	/**
+	 * Monta a área central com editor de código e tabela de tokens.
+	 *
+	 * @return layout principal da aplicação
+	 */
 	private HBox criarAreaPrincipal() {
 		VBox fonteBox = new VBox(10, criarTituloPainel("Fonte", "Código Mini Pascal"), editor);
 		fonteBox.getStyleClass().add("panel");
@@ -112,6 +138,13 @@ public class AnalisadorLexicoApp extends Application {
 		return area;
 	}
 
+	/**
+	 * Cria o título de um painel com descrição complementar.
+	 *
+	 * @param titulo nome do painel
+	 * @param descricao texto auxiliar do painel
+	 * @return linha com legenda e descrição
+	 */
 	private HBox criarTituloPainel(String titulo, String descricao) {
 		Label nome = new Label(titulo);
 		nome.getStyleClass().add("panel-title");
@@ -122,6 +155,9 @@ public class AnalisadorLexicoApp extends Application {
 		return tituloBox;
 	}
 
+	/**
+	 * Configura a tabela de resultados com as colunas de token, linha, coluna e lexema.
+	 */
 	private void configurarTabela() {
 		tabelaTokens.setItems(tokens);
 		tabelaTokens.setPlaceholder(new Label("Execute uma análise para visualizar os tokens"));
@@ -140,6 +176,11 @@ public class AnalisadorLexicoApp extends Application {
 		tabelaTokens.getColumns().setAll(linha, coluna, lexema, tipo);
 	}
 
+	/**
+	 * Cria o rodapé da interface com status da análise e resumo de tokens.
+	 *
+	 * @return painel de status da aplicação
+	 */
 	private HBox criarRodape() {
 		resumoLabel.getStyleClass().add("summary-label");
 		statusLabel.getStyleClass().add("status-label");
@@ -149,6 +190,13 @@ public class AnalisadorLexicoApp extends Application {
 		return rodape;
 	}
 
+	/**
+	 * Cria um botão padrão da interface com a aparência visual solicitada.
+	 *
+	 * @param texto texto exibido no botão
+	 * @param estilo classe CSS aplicada ao botão
+	 * @return botão configurado
+	 */
 	private Button criarBotao(String texto, String estilo) {
 		Button botao = new Button(texto);
 		botao.getStyleClass().add(estilo);
@@ -156,6 +204,11 @@ public class AnalisadorLexicoApp extends Application {
 		return botao;
 	}
 
+	/**
+	 * Abre um arquivo de código-fonte selecionado pelo usuário.
+	 *
+	 * @param stage palco principal da aplicação
+	 */
 	private void abrirArquivo(Stage stage) {
 		FileChooser chooser = new FileChooser();
 		chooser.setTitle("Abrir código Mini Pascal");
@@ -174,6 +227,9 @@ public class AnalisadorLexicoApp extends Application {
 		}
 	}
 
+	/**
+	 * Executa a análise léxica do código digitado e atualiza a tabela de resultados.
+	 */
 	private void analisarCodigo() {
 		if (editor.getText().isBlank()) {
 			mostrarErro("Código vazio", "Digite ou abra um código-fonte antes de analisar.");
@@ -193,6 +249,11 @@ public class AnalisadorLexicoApp extends Application {
 		}
 	}
 
+	/**
+	 * Exporta a listagem atual de tokens para um arquivo de texto.
+	 *
+	 * @param stage palco principal da aplicação
+	 */
 	private void exportarTokens(Stage stage) {
 		if (tokens.isEmpty()) {
 			mostrarErro("Nada para exportar", "Execute uma análise antes de exportar os tokens.");
@@ -212,11 +273,20 @@ public class AnalisadorLexicoApp extends Application {
 		}
 	}
 
+	/**
+	 * Carrega um exemplo de código Mini Pascal para demonstrar o funcionamento da análise.
+	 */
 	private void carregarExemplo() {
 		editor.setText("program exemplo;\nvar x, y: integer;\nbegin\n  read(x);\n  if (x > y) then\n    y := x;\n  else\n    y := -x;\n  writeln(y);\nend.");
 		arquivoLabel.setText("Exemplo integrado");
 	}
 
+	/**
+	 * Exibe uma mensagem de erro no formato de alerta da interface.
+	 *
+	 * @param titulo título do aviso
+	 * @param mensagem texto detalhado da falha
+	 */
 	private void mostrarErro(String titulo, String mensagem) {
 		Alert alerta = new Alert(Alert.AlertType.ERROR);
 		alerta.setTitle("Analisador Léxico");
@@ -225,6 +295,11 @@ public class AnalisadorLexicoApp extends Application {
 		alerta.showAndWait();
 	}
 
+	/**
+	 * Método principal da aplicação JavaFX.
+	 *
+	 * @param args argumentos da linha de comando
+	 */
 	public static void main(String[] args) {
 		launch(args);
 	}
