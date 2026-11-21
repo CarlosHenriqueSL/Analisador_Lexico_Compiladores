@@ -28,7 +28,7 @@ public class TabelaSimbolos {
         String[] palavras = {
                 "ABSOLUTE", "ARRAY", "BEGIN", "CASE", "CHAR", "CONST", "DIV", "DO", "DOWNTO", "ELSE", "END", "EXTERNAL",
                 "FILE", "FOR", "FORWARD", "FUNC", "FUNCTION", "GOTO", "IF", "IMPLEMENTATION", "INTEGER",
-                "INTERFACE", "INTERRUPT", "LABEL", "MAIN", "NIL", "NIT", "OF", "PACKED", "PROC", "PROGRAM", "REAL",
+                "INTERFACE", "INTERRUPT", "LABEL", "MAIN", "NIL", "NIT", "OF", "PACKED", "PROC", "PROCEDURE", "PROGRAM", "REAL",
                 "RECORD", "REPEAT", "SET", "SHL", "SHR", "STRING", "THEN", "TO", "TYPE", "UNIT", "UNTIL", "USES", "VAR", "WHILE",
                 "WITH", "XOR"
         };
