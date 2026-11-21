@@ -123,6 +123,11 @@ public class AnalisadorLexico {
         return null;
     }
 
+    public Token proximo() {
+        Token t = proximoToken();
+        return t != null ? t : new Token("$", Tokens.EOF, linha, coluna); 
+    }
+
     /**
      * Analisa o código-fonte inteiro e retorna a lista completa de tokens.
      *
