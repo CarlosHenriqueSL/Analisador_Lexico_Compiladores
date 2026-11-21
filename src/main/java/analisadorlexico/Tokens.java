@@ -17,6 +17,7 @@ public enum Tokens {
     FIM("Fim"),
     CONSTANTE_STRING("Constante string"),
     CONSTANTE_CHAR("Constante char"),
+    EOF("Fim de arquivo"),
     DESCONHECIDO("Desconhecido");
 
     private final String descricao;
