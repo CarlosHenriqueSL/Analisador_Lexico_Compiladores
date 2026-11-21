@@ -1,0 +1,8 @@
+program comentarios;
+/* comentario de uma linha */
+var x: integer;
+/* comentario
+   com varias linhas */
+begin
+  x := 1;
+end.

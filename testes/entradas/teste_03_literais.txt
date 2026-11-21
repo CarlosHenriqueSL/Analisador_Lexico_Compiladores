@@ -1,0 +1,9 @@
+program literais;
+var nota: real;
+var letra: char;
+var mensagem: string;
+begin
+  nota := 24.40e-04;
+  letra := 'A';
+  mensagem := "resultado valido";
+end.

@@ -5,6 +5,10 @@ build/
 target/
 bin/
 
+# Saídas geradas pelos testes
+/testes/saidas/*
+!/testes/saidas/.gitkeep
+
 # IntelliJ IDEA
 .idea/
 *.iml
