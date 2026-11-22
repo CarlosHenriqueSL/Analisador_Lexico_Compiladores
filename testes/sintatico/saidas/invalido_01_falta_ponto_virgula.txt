@@ -1,0 +1,1 @@
+Linha 4, coluna 9: [Ponto e vírgula ausente]esperado ';' antes de 'y'
