@@ -1,0 +1,9 @@
+PROGRAM Expr;
+VAR a, b, c: REAL;
+BEGIN
+  a := -b + 2 * (c - 1) div 3 mod 2;
+  c := (a + b) / 2.0;
+  if (a >= b) then c := +1.5e-04;
+  /* comentario ignorado */
+  while a <= b do a := a + 1;
+END.
