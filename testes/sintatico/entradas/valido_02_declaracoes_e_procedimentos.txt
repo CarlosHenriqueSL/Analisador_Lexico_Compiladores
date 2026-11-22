@@ -1,0 +1,18 @@
+program procs;
+var a, b: integer;
+var nota: real; letra: char;
+procedure soma(x, y: integer; var r: integer);
+var tmp: integer;
+begin
+  tmp := x + y;
+  r := tmp;
+end;
+procedure limpa;
+begin
+  a := 0;
+end;
+begin
+  a := 1;
+  soma(a, 2, b);
+  limpa;
+end.

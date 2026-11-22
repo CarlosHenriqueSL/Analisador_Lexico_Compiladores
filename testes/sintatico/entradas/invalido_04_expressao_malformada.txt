@@ -1,0 +1,7 @@
+program erro4;
+begin
+  x := 1 + ;
+  y := * 2;
+  z := (3 + 4;
+  w := 5;
+end.
