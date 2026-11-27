@@ -20,6 +20,6 @@ public record ErroSintatico(Tipo tipo, int linha, int coluna, String mensagem) {
 
     @Override
     public String toString() {
-        return "Linha " + linha + ", coluna " + coluna + ": [" + tipo.getDescricao() + "]" + mensagem;
+        return "Linha " + linha + ", coluna " + coluna + ": [" + tipo.getDescricao() + "] " + mensagem;
     }
 }

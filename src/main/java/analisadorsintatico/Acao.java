@@ -7,6 +7,20 @@ package analisadorsintatico;
  * @param valor shift: estado de destino; reduce: número da regra; accept: ignorado
  */
 public record Acao(char tipo, int valor) {
+
+    /** Valida o tipo na criação, para que um typo (ex.: 's' minúsculo) falhe cedo e não vire erro silencioso. */
+    public Acao {
+        if (tipo != 'S' && tipo != 'R' && tipo != 'A') {
+            throw new IllegalArgumentException("tipo de ação inválido: '" + tipo + "' (use 'S', 'R' ou 'A')");
+        }
+    }
+
     @Override
-    public String toString() { return tipo == 'A' ? "acc" : (tipo == 'S' ? "s" : "r") + valor; }
+    public String toString() {
+        return switch (tipo) {
+            case 'A' -> "acc";
+            case 'S' -> "s" + valor;
+            default -> "r" + valor;
+        };
+    }
 }

@@ -8,6 +8,8 @@ import java.util.*;
 /**
  * Autômato LR(0): cada estado é um conjunto de "itens". Um item é uma regra com um ponto (•)
  * que marca até onde o lado direito já foi lido. Ex.: COMANDO -> if EXPR • then COMANDO
+ *
+ * Contrato: a produção de índice 0 da gramática é a produção aumentada S' -> PROG.
  */
 public class AutomatoLR0 {
 
@@ -23,7 +25,7 @@ public class AutomatoLR0 {
         @Override
         public String toString() {
             List<String> d = new ArrayList<>(producao.direita());
-            d.add(ponto, "•");
+            d.add(Math.min(ponto, d.size()), "•");
             return producao.esquerda() + " -> " + String.join(" ", d);
         }
     }
@@ -34,6 +36,9 @@ public class AutomatoLR0 {
 
     public AutomatoLR0(GramaticaMiniPascal g) {
         this.g = g;
+        if (g.getProducoes().isEmpty()) {
+            throw new IllegalArgumentException("a gramática não possui produções");
+        }
         construir();
     }
 
@@ -86,7 +91,9 @@ public class AutomatoLR0 {
 
     public int numEstados() { return estados.size(); }
 
-    public Set<Item> itens(int estado) { return estados.get(estado); }
+    /** Itens do estado (visão somente leitura). */
+    public Set<Item> itens(int estado) { return Collections.unmodifiableSet(estados.get(estado)); }
 
-    public Map<String, Integer> transicoes(int estado) { return transicoes.get(estado); }
+    /** Transições do estado (visão somente leitura). */
+    public Map<String, Integer> transicoes(int estado) { return Collections.unmodifiableMap(transicoes.get(estado)); }
 }

@@ -10,13 +10,15 @@ import java.util.*;
  * Tabelas ACTION e GOTO do analisador SLR(1).
  *
  * Regras de construção, para cada estado i do autômato LR(0):
- *  - item A -> α • a β  e transição i --a--> j      => ACTION[i][a] = shift j
+ *  - item A -> α • a β e transição i --a--> j       => ACTION[i][a] = shift j
  *  - item A -> α •  (A diferente de S')              => ACTION[i][a] = reduce A->α, para todo a em FOLLOW(A)
  *  - item S' -> PROG •                               => ACTION[i][$] = accept
  *  - transição i --B--> j com B não-terminal         => GOTO[i][B] = j
  *
- * Conflitos: shift/reduce -> fica o SHIFT (liga o else ao if mais próximo);
+ * Conflitos: accept vence qualquer outra ação; shift/reduce -> fica o SHIFT (liga o else ao if mais próximo);
  *            reduce/reduce -> fica a regra de menor número. Todos são guardados em conflitos().
+ *
+ * Contratos: a produção de índice 0 é S' -> PROG, e o número de cada produção é igual ao seu índice na lista.
  */
 public class TabelaSLR {
     private final List<Map<String, Acao>> action = new ArrayList<>();
@@ -26,6 +28,7 @@ public class TabelaSLR {
 
     public TabelaSLR(GramaticaMiniPascal g, AutomatoLR0 automato, ConjuntosFirstFollow ff) {
         this.gramatica = g;
+        validarNumeracao(g);
         for (int i = 0; i < automato.numEstados(); i++) {
             action.add(new LinkedHashMap<>());
             goTo.add(new LinkedHashMap<>());
@@ -47,6 +50,17 @@ public class TabelaSLR {
         }
     }
 
+    /** O parser usa numero() como índice em getProducoes(); garante que os dois coincidem. */
+    private static void validarNumeracao(GramaticaMiniPascal g) {
+        List<Producao> producoes = g.getProducoes();
+        for (int i = 0; i < producoes.size(); i++) {
+            if (producoes.get(i).numero() != i) {
+                throw new IllegalArgumentException("a produção de índice " + i + " tem número " + producoes.get(i).numero()
+                        + "; o número deve ser igual ao índice");
+            }
+        }
+    }
+
     private void inserir(int estado, String terminal, Acao nova) {
         Acao atual = action.get(estado).get(terminal);
         if (atual == null || atual.equals(nova)) {
@@ -54,7 +68,9 @@ public class TabelaSLR {
             return;
         }
         Acao escolhida;
-        if (atual.tipo() == 'S') escolhida = atual;
+        if (atual.tipo() == 'A') escolhida = atual;
+        else if (nova.tipo() == 'A') escolhida = nova;
+        else if (atual.tipo() == 'S') escolhida = atual;
         else if (nova.tipo() == 'S') escolhida = nova;
         else escolhida = atual.valor() <= nova.valor() ? atual : nova;
         action.get(estado).put(terminal, escolhida);
@@ -70,10 +86,21 @@ public class TabelaSLR {
     /** Estado de destino do GOTO, ou null. */
     public Integer irPara(int estado, String naoTerminal) { return goTo.get(estado).get(naoTerminal); }
 
-    /** Terminais que o estado sabe tratar (usado em "esperado ..."). */
-    public Set<String> terminaisEsperados(int estado) { return action.get(estado).keySet(); }
+    /**
+     * Terminais que o estado sabe tratar (usado em "esperado ...").
+     * Os que podem ser empilhados (shift) vêm primeiro, pois são o que o programador deveria ter escrito;
+     * depois vêm os terminais de reduce (FOLLOW). Devolve uma cópia.
+     */
+    public Set<String> terminaisEsperados(int estado) {
+        Set<String> resultado = new LinkedHashSet<>();
+        Map<String, Acao> linha = action.get(estado);
+        for (Map.Entry<String, Acao> e : linha.entrySet()) if (e.getValue().tipo() == 'S') resultado.add(e.getKey());
+        for (Map.Entry<String, Acao> e : linha.entrySet()) if (e.getValue().tipo() != 'S') resultado.add(e.getKey());
+        return resultado;
+    }
 
     public int numEstados() { return action.size(); }
 
-    public List<String> conflitos() { return conflitos; }
+    /** Conflitos resolvidos durante a construção (visão somente leitura). */
+    public List<String> conflitos() { return Collections.unmodifiableList(conflitos); }
 }

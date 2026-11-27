@@ -24,6 +24,9 @@ import static gramatica.GramaticaMiniPascal.FIM;
  *
  * O analisador léxico é chamado sob demanda (um token por vez), até devolver o token EOF.
  *
+ * Uso: cada instância analisa UMA entrada, porque o analisador léxico é consumido durante a análise.
+ * Para outra entrada, crie um novo AnalisadorLexico e um novo AnalisadorSintatico.
+ *
  * Recuperação de erros (para achar vários erros numa única passada):
  *  1) Reparo do ';': se inserir um ';' imaginário antes do token atual deixa a análise seguir
  *     (testado numa cópia da pilha), o erro é "falta ;" e a análise continua sem descartar nada.
@@ -32,6 +35,9 @@ import static gramatica.GramaticaMiniPascal.FIM;
  *  3) Se o erro se repete na mesma posição (sem progresso), o token é descartado: a análise sempre termina.
  */
 public class AnalisadorSintatico {
+    /** Limite de passos (reduções) ao simular a leitura de um terminal numa cópia da pilha. */
+    private static final int MAX_PASSOS_SIMULACAO = 10_000;
+
     private final TabelaSLR tabela;
     private final AnalisadorLexico lexico;
 
@@ -52,6 +58,7 @@ public class AnalisadorSintatico {
 
     /** Executa a análise e devolve os erros encontrados (lista vazia = programa correto). */
     public List<ErroSintatico> analisar() {
+        reiniciarEstado();
         estados.push(0);
         avancar();
         while (true) {
@@ -72,6 +79,19 @@ public class AnalisadorSintatico {
         }
         erros.sort(Comparator.comparingInt(ErroSintatico::linha).thenComparingInt(ErroSintatico::coluna));
         return erros;
+    }
+
+    /** Limpa pilhas, erros e contadores, para que uma chamada repetida não misture resultados. */
+    private void reiniciarEstado() {
+        estados.clear();
+        simbolos.clear();
+        erros.clear();
+        atual = null;
+        anterior = null;
+        virtual = null;
+        pos = -1;
+        posUltimoErro = -2;
+        aposErroLexico = false;
     }
 
     // ---------------------------------------------------------------- entrada
@@ -110,6 +130,7 @@ public class AnalisadorSintatico {
 
     private String mensagemLexica(Token t) {
         String lex = t.getLexema();
+        if (lex == null || lex.isEmpty()) return "símbolo desconhecido";
         if (lex.startsWith("\"")) return "constante string não fechada: " + lex.stripTrailing();
         if (lex.startsWith("'")) return "constante char inválida (deve ter exatamente 1 caractere): " + lex.stripTrailing();
         if (lex.startsWith("/*")) return "comentário de bloco não fechado";
@@ -122,7 +143,12 @@ public class AnalisadorSintatico {
             estados.pop();
             simbolos.pop();
         }
-        estados.push(tabela.irPara(estados.peek(), p.esquerda()));
+        Integer destino = tabela.irPara(estados.peek(), p.esquerda());
+        if (destino == null) {
+            throw new IllegalStateException("GOTO ausente: estado " + estados.peek()
+                    + ", não-terminal '" + p.esquerda() + "' (regra " + p.numero() + "); verifique a gramática");
+        }
+        estados.push(destino);
         simbolos.push(p.esquerda());
     }
 
@@ -186,7 +212,7 @@ public class AnalisadorSintatico {
 
     /** Faz reduções na pilha-cópia até conseguir um shift do terminal t (true) ou encontrar erro (false). */
     private boolean simularLeitura(Deque<Integer> pilha, String t) {
-        for (int passo = 0; passo < 10_000; passo++) {
+        for (int passo = 0; passo < MAX_PASSOS_SIMULACAO; passo++) {
             Acao a = tabela.acao(pilha.peek(), t);
             if (a == null) return false;
             if (a.tipo() == 'S') {
