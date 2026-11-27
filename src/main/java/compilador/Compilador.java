@@ -5,6 +5,7 @@ import analisadorlexico.Token;
 import analisadorlexico.Tokens;
 import analisadorsintatico.Acao;
 import analisadorsintatico.AnalisadorSintatico;
+import analisadorsintatico.AutomatoLR0;
 import analisadorsintatico.ErroSintatico;
 import analisadorsintatico.TabelaSLR;
 import compilador.dto.DadosInspecaoSLR;
@@ -23,125 +24,120 @@ import gramatica.Producao;
 import tabelasimbolos.TabelaSimbolos;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Fachada (Facade) principal do compilador da linguagem Mini_Pascal.
- * <p>
- * Centraliza a coordenação entre:
- * <ul>
- *     <li><b>Analisador Léxico</b> ({@link AnalisadorLexico}) e <b>Tabela de Símbolos</b> ({@link TabelaSimbolos});</li>
- *     <li><b>Gramática Mini_Pascal</b> ({@link GramaticaMiniPascal}), conjuntos <b>FIRST/FOLLOW</b> ({@link ConjuntosFirstFollow})
- *         e <b>Tabela SLR(1)</b> ({@link TabelaSLR});</li>
- *     <li><b>Analisador Sintático SLR(1)</b> ({@link AnalisadorSintatico}).</li>
- * </ul>
- * Isola totalmente os detalhes internos do compilador da camada de interface gráfica (JavaFX).
+ * Fachada (Facade) que integra o Analisador Léxico, a Tabela de Símbolos,
+ * a Gramática Mini_Pascal e o Analisador Sintático SLR(1) para a interface gráfica e testes.
  */
 public class Compilador {
 
+    private static final List<String> PALAVRAS_RESERVADAS = List.of(
+            "program", "var", "integer", "real", "char", "string",
+            "procedure", "begin", "end", "if", "then", "else",
+            "while", "do", "or", "div", "and", "not"
+    );
+
     private final GramaticaMiniPascal gramatica;
     private final ConjuntosFirstFollow conjuntosFirstFollow;
+    private final AutomatoLR0 automatoLR0;
     private final TabelaSLR tabelaSLR;
-    private final DadosInspecaoSLR dadosInspecaoSLR;
 
-    /**
-     * Inicializa o compilador construindo uma única vez as estruturas estáticas da gramática,
-     * os conjuntos FIRST e FOLLOW e a tabela de análise SLR(1).
-     */
     public Compilador() {
         this.gramatica = new GramaticaMiniPascal();
         this.conjuntosFirstFollow = new ConjuntosFirstFollow(this.gramatica);
-        this.tabelaSLR = new TabelaSLR(this.gramatica, this.conjuntosFirstFollow);
-        this.dadosInspecaoSLR = construirDadosInspecaoSLR();
+        this.automatoLR0 = new AutomatoLR0(this.gramatica);
+        this.tabelaSLR = new TabelaSLR(this.gramatica, this.automatoLR0, this.conjuntosFirstFollow);
     }
 
     /**
-     * Executa apenas a fase de Análise Léxica (I Unidade) sobre o código-fonte informado.
-     *
-     * @param codigoFonte Texto do programa em Mini_Pascal.
-     * @return {@link ResultadoLexico} contendo os pares {@code <lexema, token>}, erros léxicos e tabela de símbolos.
+     * Executa somente a Análise Léxica (I Unidade) sobre o código-fonte informado.
      */
     public ResultadoLexico analisarLexico(String codigoFonte) {
-        String fonteNormalizado = normalizarQuebrasDeLinha(codigoFonte);
         long inicio = System.nanoTime();
+        String entrada = codigoFonte != null ? codigoFonte : "";
 
         TabelaSimbolos tabelaSimbolos = new TabelaSimbolos();
-        AnalisadorLexico lexer = new AnalisadorLexico(fonteNormalizado, tabelaSimbolos);
+        AnalisadorLexico lexico = new AnalisadorLexico(entrada, tabelaSimbolos);
 
         List<ItemTokenDTO> tokensReconhecidos = new ArrayList<>();
         List<ItemErroDTO> errosLexicos = new ArrayList<>();
+        Map<String, Integer> primeiraLinhaIdentificador = new LinkedHashMap<>();
 
-        Token tokenAtual;
-        while ((tokenAtual = lexer.proximoToken()) != null && !ehFimDeArquivo(tokenAtual)) {
-            String lexema = extrairLexema(tokenAtual);
-            String nomeToken = extrairNomeToken(tokenAtual);
-            int linha = extrairLinha(tokenAtual);
+        while (true) {
+            Token t = lexico.proximo();
+            if (t.getTipo() == Tokens.EOF) {
+                break;
+            }
 
-            if (ehTokenErro(tokenAtual)) {
+            if (t.getTipo() == Tokens.DESCONHECIDO) {
                 errosLexicos.add(new ItemErroDTO(
-                        linha,
-                        "Erro Léxico",
-                        lexema,
-                        "Símbolo desconhecido ou literal malformado: '" + lexema + "'"
+                        t.getLinha(),
+                        "Erro léxico",
+                        "'" + t.getLexema() + "'",
+                        descreverErroLexico(t) + " (coluna " + t.getColuna() + ")"
                 ));
             } else {
-                tokensReconhecidos.add(new ItemTokenDTO(linha, lexema, nomeToken));
+                String nomeToken = t.getTipo().name();
+                tokensReconhecidos.add(new ItemTokenDTO(t.getLinha(), t.getLexema(), nomeToken));
+
+                if (t.getTipo() == Tokens.IDENTIFICADOR) {
+                    primeiraLinhaIdentificador.putIfAbsent(t.getLexema().toLowerCase(), t.getLinha());
+                }
             }
         }
 
-        List<ItemSimboloDTO> simbolos = extrairTabelaSimbolos(tabelaSimbolos, tokensReconhecidos);
-        long duracaoMs = Math.max(1L, (System.nanoTime() - inicio) / 1_000_000L);
+        List<ItemSimboloDTO> listaSimbolos = montarListaSimbolos(primeiraLinhaIdentificador);
+        long duracaoMs = (System.nanoTime() - inicio) / 1_000_000L;
 
-        return new ResultadoLexico(tokensReconhecidos, errosLexicos, simbolos, duracaoMs);
+        return new ResultadoLexico(tokensReconhecidos, errosLexicos, listaSimbolos, duracaoMs);
     }
 
     /**
-     * Executa a Análise Sintática SLR(1) integrada ao Analisador Léxico (II Unidade).
-     * <p>
-     * Conforme contrato da disciplina:
-     * <ul>
-     *     <li>Retorna exatamente {@code "OK"} quando o código-fonte é sintaticamente válido;</li>
-     *     <li>Retorna o conjunto completo de erros (léxicos e sintáticos), especificando o tipo
-     *         e o número da linha de cada ocorrência, caso contrário.</li>
-     * </ul>
-     *
-     * @param codigoFonte Texto do programa em Mini_Pascal.
-     * @return {@link ResultadoSintatico} contendo o veredito oficial e a lista estruturada de erros.
+     * Executa somente a Análise Sintática SLR(1) (II Unidade) sobre o código-fonte informado.
      */
     public ResultadoSintatico analisarSintatico(String codigoFonte) {
-        String fonteNormalizado = normalizarQuebrasDeLinha(codigoFonte);
         long inicio = System.nanoTime();
+        String entrada = codigoFonte != null ? codigoFonte : "";
 
         TabelaSimbolos tabelaSimbolos = new TabelaSimbolos();
-        AnalisadorLexico lexer = new AnalisadorLexico(fonteNormalizado, tabelaSimbolos);
-        AnalisadorSintatico parser = new AnalisadorSintatico(lexer, tabelaSimbolos, tabelaSLR, gramatica);
+        AnalisadorLexico lexico = new AnalisadorLexico(entrada, tabelaSimbolos);
+        AnalisadorSintatico parser = new AnalisadorSintatico(this.tabelaSLR, lexico);
 
         List<ErroSintatico> errosBrutos = parser.analisar();
-        long duracaoMs = Math.max(1L, (System.nanoTime() - inicio) / 1_000_000L);
+        List<ItemErroDTO> errosDTO = new ArrayList<>();
 
-        if (errosBrutos == null || errosBrutos.isEmpty()) {
-            return ResultadoSintatico.sucesso(duracaoMs);
+        for (ErroSintatico erro : errosBrutos) {
+            String tipoDescricao = erro.tipo() != null ? erro.tipo().getDescricao() : "Erro sintático";
+            String tokenEncontrado = extrairTokenEncontrado(erro);
+            String descricaoCompleta = erro.mensagem() + " (coluna " + erro.coluna() + ")";
+
+            errosDTO.add(new ItemErroDTO(
+                    erro.linha(),
+                    tipoDescricao,
+                    tokenEncontrado,
+                    descricaoCompleta
+            ));
         }
 
-        List<ItemErroDTO> errosFormatados = errosBrutos.stream()
-                .map(this::converterErroSintatico)
-                .sorted(Comparator.comparingInt(ItemErroDTO::linha))
-                .toList();
+        boolean valido = errosBrutos.isEmpty();
+        String saidaOficial = valido
+                ? "OK"
+                : errosBrutos.stream()
+                .map(ErroSintatico::toString)
+                .collect(Collectors.joining(System.lineSeparator()));
 
-        return ResultadoSintatico.falha(errosFormatados, duracaoMs);
+        long duracaoMs = (System.nanoTime() - inicio) / 1_000_000L;
+        return new ResultadoSintatico(valido, saidaOficial, errosDTO, duracaoMs);
     }
 
     /**
-     * Executa o pipeline completo (Análise Léxica + Análise Sintática SLR(1)),
-     * consolidando todas as informações necessárias para atualizar todas as abas da interface.
-     *
-     * @param codigoFonte Texto do programa em Mini_Pascal.
-     * @return {@link ResultadoCompilacao} unificando resultados léxico, sintático e tabela de símbolos.
+     * Executa o pipeline completo (Análise Léxica + Análise Sintática SLR(1)).
      */
     public ResultadoCompilacao compilar(String codigoFonte) {
         ResultadoLexico resLexico = analisarLexico(codigoFonte);
@@ -150,185 +146,148 @@ public class Compilador {
     }
 
     /**
-     * Retorna os dados imutáveis da gramática, conjuntos FIRST/FOLLOW e tabela SLR(1)
-     * para consulta na aba de inspeção da interface gráfica.
-     *
-     * @return {@link DadosInspecaoSLR} pré-calculado na inicialização do compilador.
+     * Retorna os metadados da Gramática Aumentada, conjuntos FIRST/FOLLOW e Tabela SLR(1)
+     * para exibição na aba de inspeção didática.
      */
     public DadosInspecaoSLR getDadosInspecaoSLR() {
-        return dadosInspecaoSLR;
-    }
+        List<Producao> producoesGramatica = gramatica.getProducoes();
 
-    // =========================================================================
-    // MÉTODOS AUXILIARES DE NORMALIZAÇÃO E ADAPTAÇÃO COM O BACKEND
-    // =========================================================================
+        // 1. Lista de produções
+        List<LinhaProducaoDTO> linhasProducoes = new ArrayList<>();
+        Set<String> naoTerminais = new LinkedHashSet<>();
 
-    /**
-     * Normaliza quebras de linha no padrão Windows ({@code \r\n}) para {@code \n},
-     * evitando contagem dupla de linhas no analisador léxico e sincronizando com o editor JavaFX.
-     */
-    private String normalizarQuebrasDeLinha(String texto) {
-        if (texto == null) {
-            return "";
+        for (Producao p : producoesGramatica) {
+            naoTerminais.add(p.esquerda());
+            String ladoDireito = (p.direita() == null || p.direita().isEmpty())
+                    ? "ε"
+                    : String.join(" ", p.direita());
+            linhasProducoes.add(new LinhaProducaoDTO(p.numero(), p.esquerda(), ladoDireito));
         }
-        return texto.replace("\r\n", "\n").replace("\r", "\n");
+
+        // 2. Conjuntos FIRST e FOLLOW
+        List<LinhaFirstFollowDTO> linhasFirstFollow = new ArrayList<>();
+        for (String nt : naoTerminais) {
+            Set<String> firstSet = conjuntosFirstFollow.first(nt);
+            Set<String> followSet = conjuntosFirstFollow.follow(nt);
+            linhasFirstFollow.add(new LinhaFirstFollowDTO(
+                    nt,
+                    formatarConjunto(firstSet),
+                    formatarConjunto(followSet)
+            ));
+        }
+
+        // 3. Tabela SLR(1) (ACTION e GOTO)
+        List<LinhaTabelaSLRDTO> linhasTabela = new ArrayList<>();
+        int totalEstados = tabelaSLR.numEstados();
+
+        for (int estado = 0; estado < totalEstados; estado++) {
+            for (String terminal : tabelaSLR.terminaisEsperados(estado)) {
+                Acao acao = tabelaSLR.acao(estado, terminal);
+                if (acao != null) {
+                    linhasTabela.add(new LinhaTabelaSLRDTO(
+                            estado,
+                            terminal,
+                            "ACTION",
+                            acao.toString()
+                    ));
+                }
+            }
+
+            for (String nt : naoTerminais) {
+                Integer destino = tabelaSLR.irPara(estado, nt);
+                if (destino != null) {
+                    linhasTabela.add(new LinhaTabelaSLRDTO(
+                            estado,
+                            nt,
+                            "GOTO",
+                            String.valueOf(destino)
+                    ));
+                }
+            }
+        }
+
+        // 4. Resumo de métricas
+        Map<String, String> resumoMetricas = new LinkedHashMap<>();
+        resumoMetricas.put("Total de Produções", String.valueOf(producoesGramatica.size()));
+        resumoMetricas.put("Não-Terminais", String.valueOf(naoTerminais.size()));
+        resumoMetricas.put("Estados LR(0)/SLR(1)", String.valueOf(totalEstados));
+        resumoMetricas.put("Conflitos SLR(1)", String.valueOf(tabelaSLR.conflitos().size()));
+
+        return new DadosInspecaoSLR(linhasProducoes, linhasFirstFollow, linhasTabela, resumoMetricas);
     }
 
-    private boolean ehFimDeArquivo(Token token) {
-        Tokens tipo = token.getTipo();
-        return tipo == Tokens.EOF;
-    }
+    // =========================================================================
+    // MÉTODOS AUXILIARES PRIVADOS
+    // =========================================================================
 
-    private boolean ehTokenErro(Token token) {
-        Tokens tipo = token.getTipo();
-        return tipo == Tokens.ERRO;
-    }
-
-    private String extrairLexema(Token token) {
-        return token.getLexema() != null ? token.getLexema() : "";
-    }
-
-    private String extrairNomeToken(Token token) {
-        return token.getTipo() != null ? token.getTipo().name() : "DESCONHECIDO";
-    }
-
-    private int extrairLinha(Token token) {
-        return Math.max(1, token.getLinha());
-    }
-
-    private ItemErroDTO converterErroSintatico(ErroSintatico erro) {
-        int linha = Math.max(1, erro.getLinha());
-        String tipo = (erro.getTipoErro() != null && !erro.getTipoErro().isBlank())
-                ? erro.getTipoErro()
-                : "Erro Sintático";
-        String tokenEncontrado = erro.getTokenEncontrado() != null ? erro.getTokenEncontrado() : "-";
-        String mensagem = erro.getMensagem() != null ? erro.getMensagem() : erro.toString();
-
-        return new ItemErroDTO(linha, tipo, tokenEncontrado, mensagem);
-    }
-
-    /**
-     * Constrói uma visão tabular da Tabela de Símbolos combinando as palavras reservadas
-     * pré-carregadas e os identificadores reconhecidos no código-fonte.
-     */
-    private List<ItemSimboloDTO> extrairTabelaSimbolos(TabelaSimbolos tabela, List<ItemTokenDTO> tokens) {
-        List<ItemSimboloDTO> resultado = new ArrayList<>();
+    private List<ItemSimboloDTO> montarListaSimbolos(Map<String, Integer> identificadoresEncontrados) {
+        List<ItemSimboloDTO> simbolos = new ArrayList<>();
         int indice = 1;
 
-        // 1. Registra palavras reservadas conhecidas na TabelaSimbolos
-        Set<String> reservadas = tabela.getPalavrasReservadas();
-        if (reservadas != null) {
-            List<String> ordenadas = reservadas.stream().sorted().toList();
-            for (String palavra : ordenadas) {
-                resultado.add(new ItemSimboloDTO(
-                        indice++,
-                        palavra,
-                        "Palavra Reservada",
-                        "PALAVRA_RESERVADA",
-                        0
-                ));
-            }
+        for (String reservada : PALAVRAS_RESERVADAS) {
+            simbolos.add(new ItemSimboloDTO(
+                    indice++,
+                    reservada,
+                    "Palavra Reservada",
+                    Tokens.PALAVRA_RESERVADA.name(),
+                    0
+            ));
         }
 
-        // 2. Registra identificadores únicos encontrados na varredura atual com sua primeira linha
-        Map<String, Integer> primeiraLinhaPorIdentificador = new LinkedHashMap<>();
-        for (ItemTokenDTO t : tokens) {
-            if ("IDENTIFICADOR".equalsIgnoreCase(t.token())) {
-                primeiraLinhaPorIdentificador.putIfAbsent(t.lexema(), t.linha());
-            }
-        }
-
-        for (Map.Entry<String, Integer> entry : primeiraLinhaPorIdentificador.entrySet()) {
-            resultado.add(new ItemSimboloDTO(
+        for (Map.Entry<String, Integer> entry : identificadoresEncontrados.entrySet()) {
+            simbolos.add(new ItemSimboloDTO(
                     indice++,
                     entry.getKey(),
                     "Identificador",
-                    "IDENTIFICADOR",
+                    Tokens.IDENTIFICADOR.name(),
                     entry.getValue()
             ));
         }
 
-        return resultado;
+        return simbolos;
     }
 
-    /**
-     * Extrai e formata as produções, conjuntos FIRST/FOLLOW e entradas ACTION/GOTO
-     * para exibição didática na aba "Inspeção SLR(1)".
-     */
-    private DadosInspecaoSLR construirDadosInspecaoSLR() {
-        // 1. Produções da Gramática Mini_Pascal
-        List<LinhaProducaoDTO> listaProducoes = new ArrayList<>();
-        List<Producao> producoes = gramatica.getProducoes();
-        if (producoes != null) {
-            for (int i = 0; i < producoes.size(); i++) {
-                Producao p = producoes.get(i);
-                String esquerda = p.getLadoEsquerdo();
-                String direita = (p.getLadoDireito() == null || p.getLadoDireito().isEmpty())
-                        ? "ε"
-                        : String.join(" ", p.getLadoDireito());
-                listaProducoes.add(new LinhaProducaoDTO(i, esquerda, direita));
+    private String descreverErroLexico(Token t) {
+        String lex = t.getLexema();
+        if (lex.startsWith("\"")) {
+            return "Constante string não fechada: " + lex.stripTrailing();
+        }
+        if (lex.startsWith("'")) {
+            return "Constante char inválida (deve ter exatamente 1 caractere): " + lex.stripTrailing();
+        }
+        if (lex.startsWith("/*")) {
+            return "Comentário de bloco não fechado";
+        }
+        if (!lex.isEmpty() && Character.isDigit(lex.charAt(0))) {
+            return "Número malformado: '" + lex + "'";
+        }
+        return "Símbolo desconhecido: '" + lex + "'";
+    }
+
+    private String extrairTokenEncontrado(ErroSintatico erro) {
+        String msg = erro.mensagem();
+        if (msg == null || msg.isBlank()) {
+            return "Coluna " + erro.coluna();
+        }
+        if (msg.contains("fim do arquivo")) {
+            return "EOF";
+        }
+
+        int buscaInicio = msg.startsWith("esperado ';'") ? 12 : 0;
+        int aspa1 = msg.indexOf('\'', buscaInicio);
+        if (aspa1 >= 0) {
+            int aspa2 = msg.indexOf('\'', aspa1 + 1);
+            if (aspa2 > aspa1) {
+                return msg.substring(aspa1, aspa2 + 1);
             }
         }
+        return "Coluna " + erro.coluna();
+    }
 
-        // 2. Conjuntos FIRST e FOLLOW
-        List<LinhaFirstFollowDTO> listaFirstFollow = new ArrayList<>();
-        Set<String> naoTerminais = gramatica.getNaoTerminais();
-        if (naoTerminais != null) {
-            for (String nt : naoTerminais) {
-                Set<String> first = conjuntosFirstFollow.getFirst(nt);
-                Set<String> follow = conjuntosFirstFollow.getFollow(nt);
-                String firstStr = (first != null && !first.isEmpty())
-                        ? "{ " + first.stream().sorted().collect(Collectors.joining(", ")) + " }"
-                        : "{ }";
-                String followStr = (follow != null && !follow.isEmpty())
-                        ? "{ " + follow.stream().sorted().collect(Collectors.joining(", ")) + " }"
-                        : "{ }";
-                listaFirstFollow.add(new LinhaFirstFollowDTO(nt, firstStr, followStr));
-            }
+    private String formatarConjunto(Set<String> conjunto) {
+        if (conjunto == null || conjunto.isEmpty()) {
+            return "{ }";
         }
-
-        // 3. Entradas ACTION e GOTO da Tabela SLR(1)
-        List<LinhaTabelaSLRDTO> listaTabelaSLR = new ArrayList<>();
-        Map<Integer, Map<String, Acao>> tabelaAcao = tabelaSLR.getTabelaAcao();
-        if (tabelaAcao != null) {
-            tabelaAcao.keySet().stream().sorted().forEach(estado -> {
-                Map<String, Acao> linha = tabelaAcao.get(estado);
-                if (linha != null) {
-                    linha.entrySet().stream()
-                            .sorted(Map.Entry.comparingByKey())
-                            .forEach(entry -> listaTabelaSLR.add(new LinhaTabelaSLRDTO(
-                                    estado,
-                                    entry.getKey(),
-                                    "ACTION",
-                                    entry.getValue().toString()
-                            )));
-                }
-            });
-        }
-
-        Map<Integer, Map<String, Integer>> tabelaGoto = tabelaSLR.getTabelaGoto();
-        if (tabelaGoto != null) {
-            tabelaGoto.keySet().stream().sorted().forEach(estado -> {
-                Map<String, Integer> linha = tabelaGoto.get(estado);
-                if (linha != null) {
-                    linha.entrySet().stream()
-                            .sorted(Map.Entry.comparingByKey())
-                            .forEach(entry -> listaTabelaSLR.add(new LinhaTabelaSLRDTO(
-                                    estado,
-                                    entry.getKey(),
-                                    "GOTO",
-                                    "Estado " + entry.getValue()
-                            )));
-                }
-            });
-        }
-
-        Map<String, String> metricas = Map.of(
-                "Total de Produções", String.valueOf(listaProducoes.size()),
-                "Não-Terminais", String.valueOf(naoTerminais != null ? naoTerminais.size() : 0),
-                "Estados LR(0)/SLR(1)", String.valueOf(tabelaAcao != null ? tabelaAcao.size() : 0)
-        );
-
-        return new DadosInspecaoSLR(listaProducoes, listaFirstFollow, listaTabelaSLR, metricas);
+        return "{ " + String.join(", ", conjunto) + " }";
     }
 }
