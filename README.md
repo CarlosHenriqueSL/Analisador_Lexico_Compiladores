@@ -1,8 +1,8 @@
-# Analisador Léxico Mini Pascal
+# Analisador Léxico e Sintático Mini Pascal
 
-Aplicação desktop desenvolvida em Java para realizar a análise léxica de códigos-fonte escritos em uma linguagem baseada em Mini Pascal.
+Aplicação desktop desenvolvida em Java para realizar a análise léxica e a análise sintática de códigos-fonte escritos em uma linguagem baseada em Mini Pascal.
 
-O sistema identifica lexemas, classifica tokens, registra a posição de cada token no código-fonte e permite exportar a listagem gerada para um arquivo de texto.
+O sistema identifica lexemas, classifica tokens, registra a posição de cada token no código-fonte e permite exportar a listagem gerada para um arquivo de texto. Sobre a sequência de tokens, um analisador sintático SLR(1) verifica se o programa respeita a gramática da linguagem.
 
 ## Funcionalidades
 
@@ -14,6 +14,7 @@ O sistema identifica lexemas, classifica tokens, registra a posição de cada to
 - Detecção de símbolos e lexemas desconhecidos.
 - Exportação da listagem de tokens para arquivos `.txt`.
 - Exemplo de código Mini Pascal carregado automaticamente ao iniciar a aplicação.
+- Análise sintática SLR(1), com relato de vários erros em uma única execução.
 
 ## Tecnologias utilizadas
 
@@ -44,7 +45,7 @@ A aplicação será iniciada com um exemplo integrado de código Mini Pascal.
 Também é possível executar a classe principal diretamente pela IDE:
 
 ```text
-gui.AnalisadorLexicoApp
+gui.CompiladorApp
 ```
 
 ## Como utilizar
@@ -67,7 +68,7 @@ A tabela de resultados apresenta:
 Os testes verificam, entre outros aspectos:
 
 - Reconhecimento de palavras reservadas e operadores;
-- Ignorância de comentários de bloco;
+- Desconsideração de comentários de bloco;
 - Preservação da posição inicial dos tokens;
 - Reconhecimento de números reais e inteiros;
 - Reconhecimento de strings e caracteres;
@@ -79,18 +80,40 @@ Os testes verificam, entre outros aspectos:
 
 ```text
 .
+├── .gitignore
 ├── pom.xml
 ├── README.md
 ├── src
 │   ├── main
 │   │   ├── java
-│   │   │   ├── AnalisadorLexicoApp.java
 │   │   │   ├── analisadorlexico
 │   │   │   │   ├── AnalisadorLexico.java
 │   │   │   │   ├── Token.java
 │   │   │   │   └── Tokens.java
+│   │   │   ├── analisadorsintatico
+│   │   │   │   ├── Acao.java
+│   │   │   │   ├── AnalisadorSintatico.java
+│   │   │   │   ├── AutomatoLR0.java
+│   │   │   │   ├── ErroSintatico.java
+│   │   │   │   └── TabelaSLR.java
+│   │   │   ├── compilador
+│   │   │   │   ├── dto
+│   │   │   │   │   ├── DadosInspecaoSLR.java
+│   │   │   │   │   ├── ItemErroDTO.java
+│   │   │   │   │   ├── ItemSimboloDTO.java
+│   │   │   │   │   ├── ItemTokenDTO.java
+│   │   │   │   │   ├── ResultadoCompilacao.java
+│   │   │   │   │   ├── ResultadoLexico.java
+│   │   │   │   │   └── ResultadoSintatico.java
+│   │   │   │   └── Compilador.java
+│   │   │   ├── gramatica
+│   │   │   │   ├── ConjuntosFirstFollow.java
+│   │   │   │   ├── GramaticaMiniPascal.java
+│   │   │   │   └── Producao.java
 │   │   │   ├── gui
-│   │   │   │   ├── AnalisadorLexicoApp.java
+│   │   │   │   ├── componentes
+│   │   │   │   ├── CompiladorApp.java
+│   │   │   │   ├── CompiladorController.java
 │   │   │   │   └── Main.java
 │   │   │   ├── tabelasimbolos
 │   │   │   │   └── TabelaSimbolos.java
@@ -104,7 +127,8 @@ Os testes verificam, entre outros aspectos:
 │               └── AnalisadorLexicoTest.java
 └── testes
     ├── entradas
-    └── saidas
+    ├── saidas
+    └── sintatico
 ```
 
 ## Tipos de tokens reconhecidos
@@ -172,14 +196,96 @@ Quando encontra um símbolo desconhecido ou um lexema malformado, o analisador:
 
 Dessa forma, vários problemas léxicos podem ser identificados em uma única execução.
 
+## Análise sintática
+
+O pacote `analisadorsintatico` implementa um analisador sintático ascendente (shift-reduce) baseado em uma tabela **SLR(1)**. Ele consome os tokens do analisador léxico, um por vez, e devolve uma lista de erros. Uma lista vazia indica que o programa está sintaticamente correto.
+
+### Etapas do processamento
+
+1. A gramática (`GramaticaMiniPascal`) define as produções. A produção de número 0 é a produção aumentada `S' -> PROG`.
+2. O autômato LR(0) (`AutomatoLR0`) é construído a partir da gramática. Cada estado é um conjunto de itens, isto é, regras com um ponto (`.`) que marca até onde o lado direito já foi lido.
+3. Os conjuntos FIRST e FOLLOW são calculados (`ConjuntosFirstFollow`).
+4. A tabela SLR(1) (`TabelaSLR`) combina o autômato e o FOLLOW nas tabelas ACTION e GOTO.
+5. O analisador (`AnalisadorSintatico`) executa o algoritmo shift-reduce com uma pilha de estados e uma pilha paralela de símbolos.
+
+### Classes
+
+- `Acao`: célula da tabela ACTION, escrita como `s5` (shift para o estado 5), `r12` (reduzir pela regra 12) ou `acc` (aceitar).
+- `AutomatoLR0`: constrói os estados e as transições usando fecho e `irPara`.
+- `TabelaSLR`: monta ACTION e GOTO e registra os conflitos resolvidos.
+- `AnalisadorSintatico`: executa o shift-reduce, converte tokens em terminais e trata os erros.
+- `ErroSintatico`: registro imutável de um erro, com tipo, linha, coluna e mensagem.
+
+### Construção da tabela
+
+Para cada estado `i` do autômato:
+
+- Item `A -> α • a β` e transição `i --a--> j` (a é terminal): `ACTION[i][a] = shift j`.
+- Item completo `A -> α •` (A diferente de `S'`): `ACTION[i][a] = reduce A -> α`, para todo `a` em FOLLOW(A).
+- Item `S' -> PROG •`: `ACTION[i][$] = accept`.
+- Transição `i --B--> j` com B não-terminal: `GOTO[i][B] = j`.
+
+Os conflitos são resolvidos da seguinte forma e ficam registrados em `TabelaSLR.conflitos()`:
+
+- **shift/reduce:** vence o shift, o que liga o `else` ao `if` mais próximo;
+- **reduce/reduce:** vence a regra de menor número.
+
+### Conversão de tokens em terminais
+
+- Identificadores viram `ident`.
+- Números inteiros e reais viram `num`.
+- As palavras `integer`, `real`, `char` e `string` viram `tipo`.
+- As demais palavras reservadas, operadores e símbolos viram o próprio lexema, em minúsculas.
+- O fim do arquivo (EOF) vira o terminal de fim de entrada `$`.
+
+O ponto final (`.`) é um terminal da gramática que encerra o programa. Lexemas sem terminal correspondente na gramática resultam em erro sintático.
+
+### Recuperação de erros sintáticos
+
+Para encontrar vários erros em uma única execução, o analisador usa três mecanismos:
+
+1. **Reparo do `;`:** se inserir um `;` imaginário antes do token atual permite que a análise prossiga (testado em uma cópia da pilha), o erro é reportado como falta de `;` e nenhum token é descartado.
+2. **Modo pânico:** desempilha até um estado que aceite o símbolo `error` (regras de erro da gramática), empilha `error` e descarta tokens até encontrar um que a tabela aceite. Os sincronizadores são `;` e `end`, e blocos `begin..end` aninhados no trecho descartado são ignorados por inteiro.
+3. **Garantia de término:** se o erro se repete na mesma posição, sem progresso, o token é descartado. A análise sempre termina.
+
+Para evitar erros em cascata, não é registrado erro sintático logo depois de um erro léxico, e qualquer código após o `.` final gera um único erro e encerra a análise. Os tokens `Desconhecido` do analisador léxico são convertidos em erros léxicos e descartados.
+
+### Tipos de erro
+
+- `ERRO_LEXICO`: símbolo desconhecido, string ou comentário não fechado, char inválido ou número malformado.
+- `TOKEN_INESPERADO`: token que o estado atual não sabe tratar.
+- `FALTA_PONTO_VIRGULA`: ponto e vírgula ausente, com a posição logo após o token anterior.
+- `FALTA_PONTO_FINAL`: programa terminou sem o `.` final.
+- `BEGIN_END_DESBALANCEADO`: `begin` sem `end` correspondente, ou bloco vazio.
+- `EXPRESSAO_MALFORMADA`: esperava-se o início de uma expressão.
+- `FIM_DE_ARQUIVO_INESPERADO`: fim do arquivo antes da hora.
+- `CODIGO_APOS_FIM_DO_PROGRAMA`: código depois do `.` que encerra o programa.
+
+Cada erro é impresso no formato `Linha L, coluna C: [Descrição]mensagem`, e a lista final é ordenada por linha e coluna. As mensagens de "esperado ..." listam no máximo 8 terminais, seguidos de "ou outros".
+
+### Limitações conhecidas
+
+- **Detecção tardia típica do SLR:** reduções feitas por FOLLOW podem ocorrer antes de o erro ser percebido, então a lista de terminais esperados pode estar à frente do ponto real do erro.
+- **Heurística do `;`:** em `x := a b;`, o diagnóstico pode ser falta de `;` em vez de operador ausente.
+- **Uso único:** cada instância de `AnalisadorSintatico` analisa uma única entrada.
+
+## Integração das etapas
+
+O pacote `compilador` reúne as etapas em um único fluxo, usado pela interface gráfica.
+
+- `Compilador`: executa a análise léxica e a sintática em sequência sobre o código-fonte.
+- Pacote `compilador.dto`: objetos que transportam os resultados para a interface.
+  - `ResultadoLexico`, `ResultadoSintatico` e `ResultadoCompilacao`: resultado de cada etapa e o resultado geral.
+  - `ItemTokenDTO`, `ItemErroDTO` e `ItemSimboloDTO`: linhas exibidas nas tabelas de tokens, erros e símbolos.
+  - `DadosInspecaoSLR`: dados do autômato e da tabela SLR(1) para inspeção.
+- Pacote `gui`: `CompiladorApp` inicia a aplicação JavaFX e `CompiladorController` conecta a interface ao `Compilador`. Os componentes visuais ficam em `gui.componentes`.
+
 ## Outros detalhes
 
-Este projeto implementa exclusivamente a etapa de análise léxica.
+Este projeto implementa a análise léxica e a análise sintática (SLR(1)).
 
-Ainda não fazem parte deste módulo:
+Ainda não fazem parte deste projeto:
 
-- Análise sintática;
-- Construção de uma tabela SLR(1);
 - Análise semântica;
 - Verificação de tipos;
 - Geração de código.
