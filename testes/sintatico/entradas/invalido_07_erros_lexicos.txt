@@ -1,0 +1,6 @@
+program erro7;
+begin
+  x := 1e+;
+  y := @;
+  z := "string sem fechamento;
+end.

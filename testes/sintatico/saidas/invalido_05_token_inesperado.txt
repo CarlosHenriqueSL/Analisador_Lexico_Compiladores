@@ -1,0 +1,2 @@
+Linha 6, coluna 3: [Token inesperado]token 'else' inesperado; esperado 'end', identificador, 'if', 'while', 'begin'
+Linha 7, coluna 3: [Token inesperado]token 'for' inesperado; esperado 'end', identificador, 'if', 'while', 'begin'

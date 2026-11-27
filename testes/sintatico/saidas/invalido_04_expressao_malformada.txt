@@ -1,0 +1,3 @@
+Linha 3, coluna 12: [Expressão malformada]operando esperado (identificador, número ou '(') mas encontrado ';'
+Linha 4, coluna 8: [Expressão malformada]operando esperado (identificador, número ou '(') mas encontrado '*'
+Linha 5, coluna 14: [Token inesperado]token ';' inesperado; esperado ')'

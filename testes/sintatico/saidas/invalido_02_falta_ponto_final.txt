@@ -1,0 +1,1 @@
+Linha 4, coluna 4: [Ponto final ausente]esperado '.' ao final do programa

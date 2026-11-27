@@ -1,0 +1,1 @@
+Linha 6, coluna 4: [begin/end desbalanceado]'.' alcançado com 'begin' sem o 'end' correspondente
