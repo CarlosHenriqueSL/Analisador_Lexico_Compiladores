@@ -203,7 +203,7 @@ O pacote `analisadorsintatico` implementa um analisador sintático ascendente (s
 ### Etapas do processamento
 
 1. A gramática (`GramaticaMiniPascal`) define as produções. A produção de número 0 é a produção aumentada `S' -> PROG`.
-2. O autômato LR(0) (`AutomatoLR0`) é construído a partir da gramática. Cada estado é um conjunto de itens, isto é, regras com um ponto (`.`) que marca até onde o lado direito já foi lido.
+2. O autômato LR(0) (`AutomatoLR0`) é construído a partir da gramática. Cada estado é um conjunto de itens, isto é, regras com um ponto (`•`) que marca até onde o lado direito já foi lido.
 3. Os conjuntos FIRST e FOLLOW são calculados (`ConjuntosFirstFollow`).
 4. A tabela SLR(1) (`TabelaSLR`) combina o autômato e o FOLLOW nas tabelas ACTION e GOTO.
 5. O analisador (`AnalisadorSintatico`) executa o algoritmo shift-reduce com uma pilha de estados e uma pilha paralela de símbolos.
@@ -261,7 +261,7 @@ Para evitar erros em cascata, não é registrado erro sintático logo depois de 
 - `FIM_DE_ARQUIVO_INESPERADO`: fim do arquivo antes da hora.
 - `CODIGO_APOS_FIM_DO_PROGRAMA`: código depois do `.` que encerra o programa.
 
-Cada erro é impresso no formato `Linha L, coluna C: [Descrição]mensagem`, e a lista final é ordenada por linha e coluna. As mensagens de "esperado ..." listam no máximo 8 terminais, seguidos de "ou outros".
+Cada erro é impresso no formato `Linha L, coluna C: [Descrição] mensagem`, e a lista final é ordenada por linha e coluna. As mensagens de "esperado ..." listam no máximo 8 terminais, seguidos de "ou outros".
 
 ### Limitações conhecidas
 
@@ -271,14 +271,36 @@ Cada erro é impresso no formato `Linha L, coluna C: [Descrição]mensagem`, e a
 
 ## Integração das etapas
 
-O pacote `compilador` reúne as etapas em um único fluxo, usado pela interface gráfica.
+O pacote `compilador` reúne as etapas em um único fluxo, usado pela interface gráfica. A classe `Compilador` é uma *facade*: recebe o código-fonte, executa a análise léxica e a sintática SLR(1) e devolve um `ResultadoCompilacao`. O pacote `gui` consome esse resultado: `CompiladorApp` inicia a aplicação JavaFX, `CompiladorController` conecta a interface ao `Compilador` e os componentes visuais ficam em `gui.componentes`.
 
-- `Compilador`: executa a análise léxica e a sintática em sequência sobre o código-fonte.
-- Pacote `compilador.dto`: objetos que transportam os resultados para a interface.
-  - `ResultadoLexico`, `ResultadoSintatico` e `ResultadoCompilacao`: resultado de cada etapa e o resultado geral.
-  - `ItemTokenDTO`, `ItemErroDTO` e `ItemSimboloDTO`: linhas exibidas nas tabelas de tokens, erros e símbolos.
-  - `DadosInspecaoSLR`: dados do autômato e da tabela SLR(1) para inspeção.
-- Pacote `gui`: `CompiladorApp` inicia a aplicação JavaFX e `CompiladorController` conecta a interface ao `Compilador`. Os componentes visuais ficam em `gui.componentes`.
+### Pacote compilador.dto
+
+Todos os DTOs são `record` imutáveis: as listas e mapas recebidos são copiados no construtor.
+
+- `ResultadoCompilacao`: agrega `resultadoLexico` e `resultadoSintatico` de uma execução.
+- `ResultadoLexico`: saída da análise léxica, com `tokens`, `errosLexicos`, `tabelaSimbolos` e `tempoExecucaoMs`.
+  - `gerarTextoExportacao()`: texto para exportação em `.txt`, com um par `<lexema, token>` por linha, seguido da seção `--- ERROS LÉXICOS DETECTADOS ---` quando houver erros.
+  - `listarParesPuros()`: somente os pares `<lexema, token>`, um por linha.
+  - `isSucesso()`: `true` quando não há erros léxicos.
+- `ResultadoSintatico`: saída da análise sintática, com `valido`, `saidaOficial`, `erros` (léxicos e sintáticos) e `tempoExecucaoMs`.
+  - `sucesso(tempo)`: cria o resultado válido, cuja `saidaOficial` é exatamente `OK`.
+  - `falha(erros, tempo)`: cria o resultado inválido, cuja `saidaOficial` é a listagem das mensagens de erro, uma por linha.
+- `ItemTokenDTO`: linha de um token (`linha`, `lexema`, `token`). `formatarPar()` devolve `<lexema, token>`.
+- `ItemErroDTO`: linha de um erro (`linha`, `tipoErro`, `tokenEncontrado`, `descricao`). `formatarMensagem()` devolve `[Linha N] Tipo: descrição`.
+- `ItemSimboloDTO`: entrada da tabela de símbolos (`indice`, `lexema`, `categoria`, `token`, `linhaDeclaracao`). Palavras reservadas pré-carregadas têm `linhaDeclaracao` igual a 0.
+- `DadosInspecaoSLR`: dados para a aba de inspeção do analisador SLR(1), com `producoes`, `conjuntosFirstFollow`, `linhasTabelaSLR` e `resumoMetricas`. Seus records internos são:
+  - `LinhaProducaoDTO(id, ladoEsquerdo, ladoDireito)`: uma produção da gramática;
+  - `LinhaFirstFollowDTO(naoTerminal, first, follow)`: os conjuntos FIRST e FOLLOW de um não-terminal;
+  - `LinhaTabelaSLRDTO(estado, simbolo, tipoTabela, acao)`: uma célula da tabela ACTION ou GOTO.
+
+### Fluxo dos dados
+
+```text
+código-fonte ──► Compilador ──► ResultadoCompilacao ──► CompiladorController ──► interface
+                    │                 ├── ResultadoLexico   (tokens, erros léxicos, tabela de símbolos)
+                    │                 └── ResultadoSintatico ("OK" ou lista de erros)
+                    └──► DadosInspecaoSLR (aba de inspeção da tabela SLR(1))
+```
 
 ## Outros detalhes
 
