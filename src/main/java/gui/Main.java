@@ -1,15 +1,14 @@
 package gui;
 
 /**
- * Ponto de entrada do aplicativo JavaFX para a execução da interface gráfica.
+ * Ponto de entrada principal da aplicação desktop (Launcher) para execução em Fat-JAR no Windows.
  */
-public class Main {
-    /**
-     * Inicia a aplicação do analisador léxico.
-     *
-     * @param args argumentos passados pela linha de comando
-     */
+public final class Main {
+
+    private Main() {
+    }
+
     public static void main(String[] args) {
-        AnalisadorLexicoApp.launch(AnalisadorLexicoApp.class, args);
+        CompiladorApp.iniciar(args);
     }
 }

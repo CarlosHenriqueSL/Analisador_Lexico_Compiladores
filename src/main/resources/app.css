@@ -1,149 +1,196 @@
-.app-root {
-	-fx-font-family: "Segoe UI";
-	-fx-background-color: #f4f6f8;
+.root-pane {
+    -fx-background-color: #f1f5f9;
+    -fx-font-family: "Segoe UI", system-ui, sans-serif;
+    -fx-font-size: 13px;
 }
 
-.header {
-	-fx-padding: 22px 28px 16px 28px;
-	-fx-background-color: #16242c;
+.tool-bar {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #cbd5e1;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 8 12 8 12;
+    -fx-spacing: 6;
 }
 
-.header-bar {
-	-fx-padding: 0 0 4px 0;
+.panel-card {
+    -fx-background-color: #ffffff;
 }
 
-.brand-mark {
-	-fx-min-width: 42px;
-	-fx-min-height: 42px;
-	-fx-alignment: center;
-	-fx-background-color: #e0a458;
-	-fx-background-radius: 8px;
-	-fx-text-fill: #16242c;
-	-fx-font-size: 15px;
-	-fx-font-weight: bold;
+.section-title {
+    -fx-font-weight: bold;
+    -fx-font-size: 13.5px;
+    -fx-text-fill: #1e293b;
 }
 
-.app-title {
-	-fx-text-fill: #f9fbfb;
-	-fx-font-size: 24px;
-	-fx-font-weight: bold;
+.subtitle-muted {
+    -fx-text-fill: #64748b;
+    -fx-font-size: 12px;
 }
 
-.app-subtitle, .file-label {
-	-fx-text-fill: #aebec3;
-	-fx-font-size: 12px;
+.button {
+    -fx-cursor: hand;
+    -fx-background-radius: 5;
+    -fx-border-radius: 5;
+    -fx-padding: 6 12 6 12;
+    -fx-font-weight: 600;
 }
 
-.file-label {
-	-fx-padding: 0 0 0 54px;
+.btn-primary {
+    -fx-background-color: #15803d;
+    -fx-text-fill: #ffffff;
+}
+.btn-primary:hover {
+    -fx-background-color: #166534;
 }
 
-.button-primary, .button-secondary {
-	-fx-padding: 9px 15px;
-	-fx-background-radius: 5px;
-	-fx-font-size: 13px;
-	-fx-font-weight: bold;
-	-fx-cursor: hand;
+.btn-accent {
+    -fx-background-color: #1d4ed8;
+    -fx-text-fill: #ffffff;
+}
+.btn-accent:hover {
+    -fx-background-color: #1e40af;
 }
 
-.button-primary {
-	-fx-background-color: #e0a458;
-	-fx-text-fill: #16242c;
+.btn-secondary {
+    -fx-background-color: #f8fafc;
+    -fx-text-fill: #334155;
+    -fx-border-color: #cbd5e1;
+}
+.btn-secondary:hover {
+    -fx-background-color: #e2e8f0;
 }
 
-.button-primary:hover {
-	-fx-background-color: #f1b86d;
+.btn-danger-outline {
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #b91c1c;
+    -fx-border-color: #fca5a5;
+}
+.btn-danger-outline:hover {
+    -fx-background-color: #fef2f2;
 }
 
-.button-secondary {
-	-fx-background-color: #263941;
-	-fx-border-color: #60747a;
-	-fx-border-radius: 5px;
-	-fx-text-fill: #f1f5f5;
+.editor-container {
+    -fx-border-color: #cbd5e1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-background-color: #ffffff;
 }
 
-.button-secondary:hover {
-	-fx-background-color: #344d55;
+.editor-gutter {
+    -fx-font-family: "Consolas", "Courier New", monospace;
+    -fx-font-size: 13.5px;
+    -fx-background-color: #f8fafc;
+    -fx-control-inner-background: #f8fafc;
+    -fx-text-fill: #64748b;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 0 1 0 0;
+    -fx-padding: 4 6 4 4;
 }
 
-.content-area {
-	-fx-padding: 20px 28px;
+.editor-gutter .scroll-bar:vertical,
+.editor-gutter .scroll-bar:horizontal {
+    -fx-opacity: 0;
+    -fx-pref-width: 0;
+    -fx-pref-height: 0;
 }
 
-.panel {
-	-fx-padding: 16px;
-	-fx-background-color: white;
-	-fx-border-color: #d8e0e3;
-	-fx-border-radius: 6px;
-	-fx-background-radius: 6px;
+.editor-code {
+    -fx-font-family: "Consolas", "Courier New", monospace;
+    -fx-font-size: 13.5px;
+    -fx-background-color: #ffffff;
+    -fx-control-inner-background: #ffffff;
+    -fx-text-fill: #0f172a;
+    -fx-padding: 4 6 4 6;
 }
 
-.panel-title {
-	-fx-text-fill: #16242c;
-	-fx-font-size: 16px;
-	-fx-font-weight: bold;
+.col-center {
+    -fx-alignment: CENTER;
 }
 
-.panel-detail {
-	-fx-text-fill: #7a898e;
-	-fx-font-size: 12px;
+.col-center-bold {
+    -fx-alignment: CENTER;
+    -fx-font-weight: bold;
 }
 
-.text-area {
-	-fx-font-family: "Consolas";
-	-fx-font-size: 13px;
-	-fx-text-fill: #23343a;
-	-fx-highlight-fill: #d8a55d;
-	-fx-border-color: #d8e0e3;
-	-fx-border-radius: 4px;
-	-fx-background-radius: 4px;
+.col-bold {
+    -fx-font-weight: bold;
 }
 
-.table-view {
-	-fx-border-color: #d8e0e3;
-	-fx-border-radius: 4px;
-	-fx-background-radius: 4px;
+.col-mono {
+    -fx-font-family: "Consolas", "Courier New", monospace;
 }
 
-.table-view .column-header-background {
-	-fx-background-color: #edf1f2;
+.col-mono-bold {
+    -fx-font-family: "Consolas", "Courier New", monospace;
+    -fx-font-weight: bold;
 }
 
-.table-view .column-header .label {
-	-fx-alignment: center-left;
-	-fx-text-fill: #52646a;
-	-fx-font-size: 12px;
-	-fx-font-weight: bold;
+.erro-lexico {
+    -fx-text-fill: #b45309;
+    -fx-font-weight: bold;
 }
 
-.table-row-cell {
-	-fx-cell-size: 32px;
-	-fx-text-fill: #263941;
+.erro-sintatico {
+    -fx-text-fill: #b91c1c;
+    -fx-font-weight: bold;
 }
 
-.table-row-cell:selected {
-	-fx-background-color: #e7f0ef;
-	-fx-text-fill: #16242c;
+.status-banner {
+    -fx-padding: 12 16 12 16;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-border-width: 1.5;
 }
 
-.footer {
-	-fx-padding: 11px 28px;
-	-fx-background-color: #e8edef;
+.status-neutro {
+    -fx-background-color: #f8fafc;
+    -fx-border-color: #cbd5e1;
+}
+.status-neutro .veredito-titulo {
+    -fx-text-fill: #334155;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
 }
 
-.status-label, .summary-label {
-	-fx-text-fill: #52646a;
-	-fx-font-size: 12px;
+.status-ok {
+    -fx-background-color: #ecfdf5;
+    -fx-border-color: #10b981;
+}
+.status-ok .veredito-titulo {
+    -fx-text-fill: #047857;
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
 }
 
-.summary-label {
-	-fx-font-weight: bold;
+.status-erro {
+    -fx-background-color: #fef2f2;
+    -fx-border-color: #ef4444;
+}
+.status-erro .veredito-titulo {
+    -fx-text-fill: #b91c1c;
+    -fx-font-size: 17px;
+    -fx-font-weight: bold;
 }
 
-.status-success {
-	-fx-text-fill: #28745b;
+.veredito-subtitulo {
+    -fx-text-fill: #475569;
+    -fx-font-size: 12.5px;
 }
 
-.status-warning {
-	-fx-text-fill: #a2661b;
+.console-output {
+    -fx-font-family: "Consolas", "Courier New", monospace;
+    -fx-font-size: 12.5px;
+    -fx-control-inner-background: #0f172a;
+    -fx-text-fill: #e2e8f0;
+    -fx-background-radius: 5;
+}
+
+.status-bar {
+    -fx-background-color: #e2e8f0;
+    -fx-border-color: #cbd5e1;
+    -fx-border-width: 1 0 0 0;
+}
+.status-bar .label {
+    -fx-text-fill: #334155;
+    -fx-font-size: 12px;
 }

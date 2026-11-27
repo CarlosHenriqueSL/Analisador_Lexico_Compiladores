@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import gui.componentes.EditorCodigoComLinhas?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ToolBar?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane prefWidth="1280.0"
+            prefHeight="780.0"
+            styleClass="root-pane"
+            stylesheets="@../app.css"
+            xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="gui.CompiladorController">
+
+    <top>
+        <ToolBar>
+            <Button text="Abrir .txt"
+                    onAction="#acaoAbrirArquivo"
+                    styleClass="btn-secondary"/>
+
+            <Button text="Salvar Código"
+                    onAction="#acaoSalvarCodigo"
+                    styleClass="btn-secondary"/>
+
+            <Separator orientation="VERTICAL"/>
+
+            <ComboBox fx:id="comboExemplos"
+                      prefWidth="270.0"
+                      promptText="Carregar Exemplo / Teste..."
+                      onAction="#acaoSelecionarExemplo"/>
+
+            <Separator orientation="VERTICAL"/>
+
+            <Button text="Análise Léxica"
+                    onAction="#acaoExecutarLexico"
+                    styleClass="btn-accent"/>
+
+            <Button text="Compilar (Sintático SLR)"
+                    onAction="#acaoExecutarCompilacaoCompleta"
+                    styleClass="btn-primary"/>
+
+            <Separator orientation="VERTICAL"/>
+
+            <Button text="Exportar Saída Sintática"
+                    onAction="#acaoExportarSintatico"
+                    styleClass="btn-secondary"/>
+
+            <Button text="Exportar Tokens (.txt)"
+                    onAction="#acaoExportarLexico"
+                    styleClass="btn-secondary"/>
+
+            <Separator orientation="VERTICAL"/>
+
+            <Button text="Limpar"
+                    onAction="#acaoLimpar"
+                    styleClass="btn-danger-outline"/>
+        </ToolBar>
+    </top>
+
+    <center>
+        <SplitPane dividerPositions="0.46">
+            <VBox spacing="8.0" styleClass="panel-card">
+                <padding>
+                    <Insets top="12.0" right="12.0" bottom="12.0" left="12.0"/>
+                </padding>
+
+                <HBox alignment="CENTER_LEFT" spacing="10.0">
+                    <Label text="Código-Fonte Mini_Pascal" styleClass="section-title"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Label fx:id="lblArquivoAtivo"
+                           text="Nenhum arquivo selecionado (buffer em memória)"
+                           styleClass="subtitle-muted"/>
+                </HBox>
+
+                <EditorCodigoComLinhas fx:id="editorCodigo" VBox.vgrow="ALWAYS"/>
+            </VBox>
+
+            <TabPane fx:id="abasResultados" tabClosingPolicy="UNAVAILABLE">
+
+                <Tab fx:id="abaSintatico" text="1. Análise Sintática SLR(1)">
+                    <VBox spacing="12.0">
+                        <padding>
+                            <Insets top="14.0" right="14.0" bottom="14.0" left="14.0"/>
+                        </padding>
+
+                        <VBox fx:id="cardBannerSintatico" spacing="4.0" styleClass="status-banner, status-neutro">
+                            <Label fx:id="lblVereditoSintatico"
+                                   text="AGUARDANDO ANÁLISE"
+                                   styleClass="veredito-titulo"/>
+                            <Label fx:id="lblDetalhesSintatico"
+                                   text="Clique em 'Compilar (Sintático SLR)' para validar o programa segundo a gramática Mini_Pascal."
+                                   styleClass="veredito-subtitulo"/>
+                        </VBox>
+
+                        <Label text="Diagnóstico Detalhado de Erros (Clique duas vezes em uma linha para localizar no editor)"
+                               styleClass="section-title"/>
+
+                        <TableView fx:id="tabelaErros" VBox.vgrow="ALWAYS">
+                            <placeholder>
+                                <Label text="Nenhum erro registrado. Quando o programa for válido, a saída oficial será &quot;OK&quot;."/>
+                            </placeholder>
+                            <columns>
+                                <TableColumn fx:id="colErroLinha" text="Linha" prefWidth="70.0" styleClass="col-center-bold"/>
+                                <TableColumn fx:id="colErroTipo" text="Tipo do Erro" prefWidth="145.0"/>
+                                <TableColumn fx:id="colErroToken" text="Token Encontrado" prefWidth="135.0"/>
+                                <TableColumn fx:id="colErroDescricao" text="Descrição / Tokens Esperados" prefWidth="360.0"/>
+                            </columns>
+                        </TableView>
+
+                        <Label text="Saída Oficial para Exportação (.txt):" styleClass="section-title"/>
+
+                        <TextArea fx:id="areaSaidaOficialSintatica"
+                                  editable="false"
+                                  prefRowCount="4"
+                                  styleClass="console-output"/>
+                    </VBox>
+                </Tab>
+
+                <Tab fx:id="abaLexico" text="2. Análise Léxica (Tokens)">
+                    <VBox spacing="10.0">
+                        <padding>
+                            <Insets top="14.0" right="14.0" bottom="14.0" left="14.0"/>
+                        </padding>
+
+                        <Label fx:id="lblResumoLexico"
+                               text="Listagem de pares &lt;lexema, token&gt; reconhecidos (espaços e comentários /* ... */ desconsiderados)."
+                               styleClass="subtitle-muted"/>
+
+                        <TableView fx:id="tabelaTokens" VBox.vgrow="ALWAYS">
+                            <placeholder>
+                                <Label text="Execute a Análise Léxica ou a Compilação para listar os tokens."/>
+                            </placeholder>
+                            <columns>
+                                <TableColumn fx:id="colTokenLinha" text="Linha" prefWidth="75.0" styleClass="col-center"/>
+                                <TableColumn fx:id="colTokenLexema" text="Lexema (Cadeia)" prefWidth="220.0" styleClass="col-mono-bold"/>
+                                <TableColumn fx:id="colTokenTipo" text="Token" prefWidth="230.0"/>
+                                <TableColumn fx:id="colTokenPar" text="Formato Saída (.txt)" prefWidth="240.0" styleClass="col-mono"/>
+                            </columns>
+                        </TableView>
+                    </VBox>
+                </Tab>
+
+                <Tab text="3. Tabela de Símbolos">
+                    <VBox spacing="10.0">
+                        <padding>
+                            <Insets top="14.0" right="14.0" bottom="14.0" left="14.0"/>
+                        </padding>
+
+                        <HBox alignment="CENTER_LEFT" spacing="12.0">
+                            <TextField fx:id="campoBuscaSimbolos"
+                                       prefWidth="280.0"
+                                       promptText="Filtrar por lexema ou categoria..."/>
+                            <CheckBox fx:id="chkOcultarReservadas"
+                                      text="Mostrar apenas identificadores do programa"/>
+                        </HBox>
+
+                        <TableView fx:id="tabelaSimbolos" VBox.vgrow="ALWAYS">
+                            <placeholder>
+                                <Label text="A Tabela de Símbolos será preenchida após a análise do código."/>
+                            </placeholder>
+                            <columns>
+                                <TableColumn fx:id="colSimboloIdx" text="#" prefWidth="60.0" styleClass="col-center"/>
+                                <TableColumn fx:id="colSimboloLexema" text="Símbolo / Lexema" prefWidth="210.0" styleClass="col-mono-bold"/>
+                                <TableColumn fx:id="colSimboloCategoria" text="Categoria" prefWidth="190.0"/>
+                                <TableColumn fx:id="colSimboloToken" text="Token" prefWidth="180.0"/>
+                                <TableColumn fx:id="colSimboloLinha" text="Primeira Ocorrência" prefWidth="140.0"/>
+                            </columns>
+                        </TableView>
+                    </VBox>
+                </Tab>
+
+                <Tab text="4. Inspeção SLR(1)">
+                    <VBox spacing="10.0">
+                        <padding>
+                            <Insets top="14.0" right="14.0" bottom="14.0" left="14.0"/>
+                        </padding>
+
+                        <Label fx:id="lblMetricasSLR"
+                               text="Gramática Mini_Pascal Aumentada"
+                               styleClass="section-title"/>
+
+                        <TabPane tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
+                            <Tab text="Produções da Gramática">
+                                <TableView fx:id="tblProducoes">
+                                    <columns>
+                                        <TableColumn fx:id="colProdId" text="Regra" prefWidth="70.0" styleClass="col-center"/>
+                                        <TableColumn fx:id="colProdEsq" text="Não-Terminal (A)" prefWidth="170.0" styleClass="col-bold"/>
+                                        <TableColumn fx:id="colProdDir" text="Derivação (α)" prefWidth="480.0" styleClass="col-mono"/>
+                                    </columns>
+                                </TableView>
+                            </Tab>
+
+                            <Tab text="Conjuntos FIRST / FOLLOW">
+                                <TableView fx:id="tblFirstFollow">
+                                    <columns>
+                                        <TableColumn fx:id="colFfNt" text="Não-Terminal" prefWidth="150.0" styleClass="col-bold"/>
+                                        <TableColumn fx:id="colFfFirst" text="Conjunto FIRST" prefWidth="290.0" styleClass="col-mono"/>
+                                        <TableColumn fx:id="colFfFollow" text="Conjunto FOLLOW" prefWidth="290.0" styleClass="col-mono"/>
+                                    </columns>
+                                </TableView>
+                            </Tab>
+
+                            <Tab text="Tabela SLR(1) (ACTION / GOTO)">
+                                <TableView fx:id="tblSlr">
+                                    <columns>
+                                        <TableColumn fx:id="colSlrEstado" text="Estado" prefWidth="90.0" styleClass="col-center"/>
+                                        <TableColumn fx:id="colSlrTabela" text="Tabela" prefWidth="110.0"/>
+                                        <TableColumn fx:id="colSlrSimbolo" text="Símbolo Gramatical" prefWidth="220.0" styleClass="col-mono"/>
+                                        <TableColumn fx:id="colSlrAcao" text="Ação / Transição" prefWidth="280.0" styleClass="col-mono-bold"/>
+                                    </columns>
+                                </TableView>
+                            </Tab>
+                        </TabPane>
+                    </VBox>
+                </Tab>
+
+            </TabPane>
+        </SplitPane>
+    </center>
+
+    <bottom>
+        <HBox spacing="10.0" styleClass="status-bar">
+            <padding>
+                <Insets top="6.0" right="14.0" bottom="6.0" left="14.0"/>
+            </padding>
+            <Label fx:id="lblStatusRodape" text="Pronto. Compilador Mini_Pascal (SLR(1)) inicializado."/>
+        </HBox>
+    </bottom>
+
+</BorderPane>
